@@ -1,0 +1,12 @@
+<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cap Board (Diamond) -->
+  <polygon points="32,8 60,22 32,36 4,22" fill="#501243"/>
+  <!-- Cap Base (Bowl) -->
+  <path d="M16,28 L16,38 C16,46 48,46 48,38 L48,28" fill="none" stroke="#6B2FA0" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Tassel String -->
+  <line x1="52" y1="24" x2="56" y2="40" stroke="#7C41B1" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Tassel Ball -->
+  <circle cx="56" cy="42" r="2.5" fill="#7C41B1"/>
+  <!-- Star (Rating) -->
+  <path d="M32,26 L33.8,31 L39,31.5 L35,35 L36.2,40 L32,37.5 L27.8,40 L29,35 L25,31.5 L30.2,31 Z" fill="white" opacity="0.9"/>
+</svg>
