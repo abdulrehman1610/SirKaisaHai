@@ -140,7 +140,7 @@ export const api = {
   },
 
   // Submit new review for teacher
-  async submitReview(data: Omit<Review, 'id' | 'createdAt' | 'helpfulCount' | 'overallScore'>): Promise<Review> {
+  async submitReview(data: Omit<Review, 'id' | 'createdAt' | 'helpfulCount' | 'overallScore'> & { userEmail?: string }): Promise<Review> {
     const res = await fetch(`${API_BASE}/reviews`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

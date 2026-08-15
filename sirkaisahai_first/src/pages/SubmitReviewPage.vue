@@ -60,7 +60,7 @@ onMounted(async () => {
     }
 
     if (!selectedOfferingId.value && offerings.value.length > 0) {
-      selectedOfferingId.value = offerings.value[0].id;
+      selectedOfferingId.value = offerings.value[0]?.id;
     }
   } finally {
     isLoadingOfferings.value = false;
