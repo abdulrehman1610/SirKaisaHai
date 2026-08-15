@@ -31,8 +31,11 @@ onMounted(async () => {
     if (profs.length > 0) {
       // Find top rated professor from live database
       const sorted = [...profs].sort((a, b) => b.rating - a.rating);
-      const topProf = await api.getProfessorById(sorted[0]?.id);
-      if (topProf) featuredProf.value = topProf;
+      const topProfId = sorted[0]?.id;
+      if (topProfId) {
+        const topProf = await api.getProfessorById(topProfId);
+        if (topProf) featuredProf.value = topProf;
+      }
     }
     // Fetch real live reviews from database
     const realReviews = await api.getRecentReviews();

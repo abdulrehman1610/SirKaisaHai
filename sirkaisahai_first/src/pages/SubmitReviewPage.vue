@@ -60,7 +60,8 @@ onMounted(async () => {
     }
 
     if (!selectedOfferingId.value && offerings.value.length > 0) {
-      selectedOfferingId.value = offerings.value[0]?.id;
+      const firstId = offerings.value[0]?.id;
+      if (firstId) selectedOfferingId.value = firstId;
     }
   } finally {
     isLoadingOfferings.value = false;
