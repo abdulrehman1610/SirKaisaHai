@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query, Header, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
@@ -43,6 +43,7 @@ def get_reviews(
 
 @router.post("", response_model=ReviewOut)
 def submit_review(
+    request: Request,
     payload: ReviewCreate,
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db)
@@ -59,23 +60,30 @@ def submit_review(
     if not prof:
         raise HTTPException(status_code=404, detail="Selected professor not found.")
 
-    # ENFORCE ONE REVIEW PER STUDENT PER TEACHER
+    # RESOLVE user from session cookie (reliable even after page refresh)
     user = None
-    if payload.userEmail:
+    cookie_name = "skh_session"
+    token = request.cookies.get(cookie_name)
+    if token and token.startswith("skh-session-"):
+        user = db.query(VerifiedUser).filter(VerifiedUser.session_token == token).first()
+
+    # Fallback: also try frontend-sent email if cookie lookup fails
+    if not user and payload.userEmail:
         e_hash = hash_email(payload.userEmail)
         user = db.query(VerifiedUser).filter(VerifiedUser.email_hash == e_hash).first()
 
-        if user:
-            existing_submission = db.query(TeacherSubmissionLog).filter(
-                TeacherSubmissionLog.user_id == user.id,
-                TeacherSubmissionLog.professor_id == payload.professorId
-            ).first()
+    # ENFORCE ONE REVIEW PER STUDENT PER TEACHER
+    if user:
+        existing_submission = db.query(TeacherSubmissionLog).filter(
+            TeacherSubmissionLog.user_id == user.id,
+            TeacherSubmissionLog.professor_id == payload.professorId
+        ).first()
 
-            if existing_submission:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"You have already published a review for {prof.name}. Each student can only review a teacher once."
-                )
+        if existing_submission:
+            raise HTTPException(
+                status_code=400,
+                detail=f"You have already published a review for {prof.name}. Each student can only review a teacher once."
+            )
 
     # Calculate overall score formula: (Teaching * 0.4 + Grading * 0.4 + (6 - Workload) * 0.2)
     overall_score = round(

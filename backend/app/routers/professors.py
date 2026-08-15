@@ -1,10 +1,10 @@
 import json
 import re
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query, Header, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
-from app.models import Professor, Review, Department, TeacherCreationLog
+from app.models import Professor, Review, Department, TeacherCreationLog, VerifiedUser
 from app.schemas import ProfessorOut, ProfessorCreate, SearchResultItem
 
 router = APIRouter(prefix="/professors", tags=["Professors / Teachers"])
@@ -72,6 +72,7 @@ def get_professors(
 
 @router.post("", response_model=ProfessorOut)
 def create_professor(
+    request: Request,
     payload: ProfessorCreate,
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db)
@@ -95,24 +96,39 @@ def create_professor(
                 detail=f"A teacher with the name '{p.name}' already exists in the {dept_label} department."
             )
 
+    # Resolve the authenticated user from session cookie
+    user = None
+    cookie_name = "skh_session"
+    token = request.cookies.get(cookie_name)
+    if token and token.startswith("skh-session-"):
+        user = db.query(VerifiedUser).filter(VerifiedUser.session_token == token).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=401, 
+            detail="You must be verified and logged in to add a new teacher to the catalog."
+        )
+
     tags = payload.tags if payload.tags else ["New Faculty"]
     new_prof = Professor(
         department_id=payload.departmentId,
         name=raw_name,
         title=payload.title or "Lecturer",
         tags_json=json.dumps(tags),
-        ai_summary=f"{raw_name} is a faculty member in the {dept.name} department."
+        ai_summary=f"{raw_name} is a faculty member in the {dept.name} department.",
+        created_by_user_id=user.id if user else None
     )
 
     db.add(new_prof)
     db.commit()
     db.refresh(new_prof)
 
-    # AUDIT LOG: Record teacher creation event with student email
+    # AUDIT LOG: Record teacher creation event with verified user_id
     log = TeacherCreationLog(
         professor_id=new_prof.id,
         teacher_name=raw_name,
-        user_email=payload.userEmail
+        user_id=user.id if user else None,
+        user_email=payload.userEmail  # May be null — that's fine, user_id is the reliable link
     )
     db.add(log)
     db.commit()

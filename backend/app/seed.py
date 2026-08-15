@@ -4,7 +4,7 @@ from sqlalchemy import text
 from app.database import SessionLocal, engine, Base
 from app.models import University, Department, Professor, Review, VerifiedUser, TeacherCreationLog, TeacherSubmissionLog, ReviewVote
 
-# The 7 Official Computing Departments of Superior University
+# The 8 Official Computing Departments of Superior University
 OFFICIAL_DEPARTMENTS = [
     {"id": "dept-cs", "name": "Computer Science", "code": "CS"},
     {"id": "dept-se", "name": "Software Engineering", "code": "SE"},
@@ -13,6 +13,7 @@ OFFICIAL_DEPARTMENTS = [
     {"id": "dept-ai", "name": "Artificial Intelligence", "code": "AI"},
     {"id": "dept-it", "name": "Information Technology", "code": "IT"},
     {"id": "dept-iot", "name": "Internet of Things", "code": "IoT"},
+    {"id": "dept-gd", "name": "Game Design", "code": "GD"},
 ]
 
 def reset_and_seed_database():
@@ -56,7 +57,7 @@ def reset_and_seed_database():
             db.add(dept)
 
         db.commit()
-        print("[SUCCESS] Database reset cleanly! 7 official departments seeded successfully:")
+        print("[SUCCESS] Database reset cleanly! 8 official departments seeded successfully:")
         for d in OFFICIAL_DEPARTMENTS:
             print(f"  ✓ {d['name']} ({d['code']})")
         print("\nAll temporary faculty and test reviews have been cleared. Ready for real data!\n")
@@ -71,8 +72,8 @@ def seed_database():
     Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     try:
-        # Check if the new IoT department exists
-        has_new_depts = db.query(Department).filter(Department.id == "dept-iot").first()
+        # Check if the new Game Design department exists
+        has_new_depts = db.query(Department).filter(Department.id == "dept-gd").first()
         if has_new_depts:
             return
 

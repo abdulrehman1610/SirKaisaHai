@@ -143,7 +143,7 @@ async function handleCreateProfessor() {
       </div>
 
       <button
-        @click="showAddModal = true"
+        @click="authStore.isVerified ? (showAddModal = true) : router.push('/auth')"
         class="bg-[#6B2A5B] text-white px-5 py-2 rounded-full font-label-sm text-xs font-bold hover:bg-[#6B2FA0] transition-colors flex items-center gap-1.5 shadow-md ml-auto"
       >
         <span class="material-symbols-outlined text-[18px]">person_add</span>
@@ -214,7 +214,7 @@ async function handleCreateProfessor() {
       <span class="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-2">search_off</span>
       <h3 class="text-xl font-bold text-on-surface">No professors found</h3>
       <p class="text-on-surface-variant mb-4">Can't find your teacher? Add them to the catalog!</p>
-      <button @click="showAddModal = true" class="bg-primary text-white px-6 py-2.5 rounded-full font-label-sm">
+      <button @click="authStore.isVerified ? (showAddModal = true) : router.push('/auth')" class="bg-primary text-white px-6 py-2.5 rounded-full font-label-sm">
         + Add New Teacher
       </button>
     </div>

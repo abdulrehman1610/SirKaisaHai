@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import { api } from '../api';
 
 export const useAuthStore = defineStore('auth', () => {
-  const email = ref<string>('');
+  const email = ref<string>(localStorage.getItem('skh_user_email') || '');
   const isVerified = ref<boolean>(false);
   // We no longer store the token directly in the client — it lives in the httpOnly cookie!
   const isInitializing = ref<boolean>(true);
@@ -20,11 +20,10 @@ export const useAuthStore = defineStore('auth', () => {
       const session = await api.checkSession();
       if (session.authenticated) {
         isVerified.value = true;
-        // Optionally, if your backend returned the email in /me, set it here.
-        // For now, we just know they are authenticated.
       } else {
         isVerified.value = false;
         email.value = '';
+        localStorage.removeItem('skh_user_email');
       }
     } finally {
       isInitializing.value = false;
@@ -43,8 +42,8 @@ export const useAuthStore = defineStore('auth', () => {
       isVerified.value = true;
       if (res.email) {
         email.value = res.email;
+        localStorage.setItem('skh_user_email', res.email);
       }
-      // NO localStorage used! The browser just saved the httpOnly cookie automatically.
     }
     return res;
   }
@@ -53,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
     await api.logout(); // Clear cookie on server
     isVerified.value = false;
     email.value = '';
+    localStorage.removeItem('skh_user_email');
   }
 
   // Initialize session on store creation
