@@ -3,6 +3,9 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Professor, Review } from '../types';
 import { api } from '../api';
+import MascotIllustration from '../components/ui/MascotIllustration.vue';
+import ReviewCard from '../components/ui/ReviewCard.vue';
+import RatingBadge from '../components/ui/RatingBadge.vue';
 
 const router = useRouter();
 const searchQuery = ref('');
@@ -10,16 +13,15 @@ const featuredProf = ref<Professor | null>(null);
 const reviewsList = ref<Review[]>([]);
 const isLoading = ref(true);
 
-// Animated Slang Headlines
 const slogans = [
-  "Kon Sir Kaisa Hai?",
-  "Asli Scene Kya Hai?",
-  "GPA Bachao, Real Feedback Paao.",
-  "Strict Attendance Ya Chill Scenes?",
-  "Easy Grading Ya Surprise Quizzes?"
+  { top: 'Kon Sir', bottom: 'Kaisa Hai?' },
+  { top: 'Asli Scene', bottom: 'Kya Hai?' },
+  { top: 'GPA Bachao,', bottom: 'Real Feedback Paao.' },
+  { top: 'Strict Attendance', bottom: 'Ya Chill Scenes?' },
+  { top: 'Easy Grading Ya', bottom: 'Surprise Quizzes?' }
 ];
 const currentSloganIndex = ref(0);
-let sloganInterval: any = null;
+let sloganInterval: ReturnType<typeof setInterval> | null = null;
 
 onMounted(async () => {
   sloganInterval = setInterval(() => {
@@ -27,9 +29,10 @@ onMounted(async () => {
   }, 3000);
 
   try {
-    const profs = await api.search('');
+    const [profs, realReviews] = await Promise.all([api.search(''), api.getRecentReviews()]);
+    reviewsList.value = realReviews;
+
     if (profs.length > 0) {
-      // Find top rated professor from live database
       const sorted = [...profs].sort((a, b) => b.rating - a.rating);
       const topProfId = sorted[0]?.id;
       if (topProfId) {
@@ -37,9 +40,6 @@ onMounted(async () => {
         if (topProf) featuredProf.value = topProf;
       }
     }
-    // Fetch real live reviews from database
-    const realReviews = await api.getRecentReviews();
-    reviewsList.value = realReviews;
   } finally {
     isLoading.value = false;
   }
@@ -56,244 +56,294 @@ function handleSearch() {
     router.push('/search');
   }
 }
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
 </script>
 
 <template>
-  <div class="max-w-container-max mx-auto px-4 md:px-gutter pb-16 md:pb-32">
-    <!-- Hero Section -->
-    <section class="py-8 md:py-24 relative overflow-hidden rounded-2xl md:rounded-3xl mt-4 md:mt-stack-md">
-      <div class="absolute inset-0 bg-gradient-to-br from-primary-container/20 to-transparent rounded-3xl pointer-events-none"></div>
-      <div class="relative z-10 flex flex-col items-center text-center max-w-3xl mx-auto space-y-4 md:space-y-stack-md px-2">
-        
-        <!-- Animated Rotating Student Slang Headline -->
-        <div class="h-16 md:h-28 flex items-center justify-center overflow-hidden">
-          <transition name="slogan-fade" mode="out-in">
-            <h1
-              :key="currentSloganIndex"
-              class="font-display-lg md:text-5xl text-xl sm:text-2xl font-extrabold text-[#6B2A5B] tracking-tight leading-tight"
+  <div class="w-full">
+    <!-- BAND 1: Hero Band (#E7DBE3) -->
+    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10 md:pb-12">
+      <div class="max-w-container-max mx-auto space-y-8">
+        <!-- Top Eyebrow Row -->
+        <div class="flex items-center justify-between gap-4">
+          <p class="ed-eyebrow">
+            The student perspective <span class="mx-1.5 opacity-45">/</span> Superior University
+          </p>
+          <p class="ed-eyebrow hidden sm:block">Est. for students</p>
+        </div>
+
+        <!-- 2-Column Editorial Hero -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div class="lg:col-span-7 space-y-5">
+            <div class="min-h-[116px] sm:min-h-[148px] md:min-h-[164px] flex items-center overflow-hidden">
+              <transition name="slogan-fade" mode="out-in">
+                <h1
+                  :key="currentSloganIndex"
+                  class="font-display text-5xl sm:text-6xl md:text-[68px] font-extrabold leading-[0.98] tracking-[-0.03em]"
+                >
+                  <span class="block text-ink-dark">{{ slogans[currentSloganIndex]?.top }}</span>
+                  <span class="block text-primary">{{ slogans[currentSloganIndex]?.bottom }}</span>
+                </h1>
+              </transition>
+            </div>
+
+            <p class="text-sm sm:text-base text-ink-muted leading-relaxed max-w-md">
+              Real, unfiltered &amp; anonymous teacher reviews.<br />
+              Know your professors before registering.
+            </p>
+          </div>
+
+          <div class="lg:col-span-5 flex justify-center lg:justify-end">
+            <MascotIllustration />
+          </div>
+        </div>
+
+        <!-- Wide Command Search Bar -->
+        <div class="ed-search-bar p-3 sm:px-5 sm:py-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+          <form @submit.prevent="handleSearch" class="md:col-span-9 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="flex flex-col gap-1 flex-1 min-w-0">
+              <span class="font-mono text-[9.5px] font-semibold uppercase tracking-[0.14em] text-ink-subtle pl-1">
+                Good semesters start here
+              </span>
+              <div class="flex items-center gap-2.5 pl-1">
+                <svg viewBox="0 0 20 20" fill="none" class="w-4 h-4 text-ink-subtle shrink-0" aria-hidden="true">
+                  <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6" />
+                  <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                </svg>
+                <input
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Search a professor or course"
+                  class="w-full bg-transparent border-none focus:ring-0 outline-none text-sm sm:text-base text-ink-dark placeholder-ink-subtle py-1 p-0"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              class="ed-btn-primary px-6 py-3 text-xs font-semibold inline-flex items-center justify-center gap-3 shrink-0 self-stretch sm:self-center cursor-pointer"
             >
-              {{ slogans[currentSloganIndex] }}
-            </h1>
-          </transition>
-        </div>
+              <span>Find my professor</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </form>
 
-        <p class="font-body-lg text-sm md:text-body-lg text-on-surface-variant max-w-xl px-2">
-          Real, unfiltered & anonymous teacher reviews by Superior University students. Know your professors before registering!
-        </p>
-
-        <!-- Glassmorphic Search -->
-        <form @submit.prevent="handleSearch" class="glass-panel w-full max-w-2xl rounded-full p-1.5 md:p-2 flex items-center shadow-lg relative mt-4 md:mt-6 transition-all hover:shadow-2xl-ambient">
-          <span class="material-symbols-outlined pl-3 md:pl-4 text-primary opacity-60 text-[20px] md:text-[24px]">search</span>
-          <input
-            v-model="searchQuery"
-            class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface text-sm md:text-body-lg py-2.5 md:py-3 px-3 md:px-4 placeholder-on-surface/40 outline-none min-w-0"
-            placeholder="Search teacher..."
-            type="text"
-          />
-          <button type="submit" class="bg-primary text-on-primary rounded-full px-5 md:px-8 py-2.5 md:py-3 font-label-sm text-[11px] md:text-label-sm hover:bg-[#6B2FA0] transition-colors duration-300 whitespace-nowrap">
-            Search
-          </button>
-        </form>
-
-        <!-- Floating Action Chips -->
-        <div class="flex flex-wrap justify-center gap-2 md:gap-3 mt-4 md:mt-8">
-          <router-link to="/search" class="glass-panel px-3 md:px-4 py-1.5 md:py-2 rounded-full font-label-sm text-[10px] md:text-label-sm text-primary flex items-center gap-1.5 md:gap-2 hover:bg-white transition-colors">
-            <span class="material-symbols-outlined text-[14px] md:text-[16px]">person_search</span> Browse
-          </router-link>
-          <router-link to="/review/new" class="glass-panel px-3 md:px-4 py-1.5 md:py-2 rounded-full font-label-sm text-[10px] md:text-label-sm text-primary flex items-center gap-1.5 md:gap-2 hover:bg-white transition-colors">
-            <span class="material-symbols-outlined text-[14px] md:text-[16px]">rate_review</span> Review
-          </router-link>
-          <router-link to="/auth" class="glass-panel px-3 md:px-4 py-1.5 md:py-2 rounded-full font-label-sm text-[10px] md:text-label-sm text-primary flex items-center gap-1.5 md:gap-2 hover:bg-white transition-colors">
-            <span class="material-symbols-outlined text-[14px] md:text-[16px]">verified_user</span> Verify
-          </router-link>
+          <div class="md:col-span-3 md:border-l md:border-border-soft md:pl-5 flex flex-row md:flex-col justify-between gap-2 text-xs font-semibold text-ink-dark">
+            <router-link
+              to="/search"
+              class="flex items-center justify-between gap-3 py-1 hover:text-primary transition-colors"
+            >
+              <span>Browse professors</span>
+              <span class="text-[11px] text-ink-subtle" aria-hidden="true">↗</span>
+            </router-link>
+            <router-link
+              to="/review/new"
+              class="flex items-center justify-between gap-3 py-1 hover:text-primary transition-colors"
+            >
+              <span>Write a review</span>
+              <span class="text-[11px] text-ink-subtle" aria-hidden="true">↗</span>
+            </router-link>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Featured Professor Profile Section (Bento Grid) -->
-    <section v-if="featuredProf" class="mt-stack-lg">
-      <div class="flex justify-between items-end mb-4 border-b border-surface-variant pb-2">
-        <h2 class="font-headline-md text-headline-md font-bold text-on-surface">
-          Top Rated Faculty
-        </h2>
-        <router-link to="/search" class="font-label-sm text-label-sm text-primary font-bold hover:underline">
-          View All →
-        </router-link>
+    <!-- BAND 2: Trust Strip (#DCC8D5) -->
+    <div class="bg-band-strip px-4 md:px-gutter py-3">
+      <div class="max-w-container-max mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-primary-dark/80">
+        <span>100% Anonymous</span>
+        <span>No Sugarcoating</span>
+        <span>Student-Driven</span>
+        <span>Zero Tracking</span>
       </div>
+    </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-stack-md">
-        <!-- Main Identity Card -->
-        <div class="lg:col-span-8 bg-surface-container-lowest rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-2xl-ambient flex flex-col md:flex-row items-center gap-5 md:gap-8 relative overflow-hidden">
-          <div class="absolute -right-20 -top-20 w-64 h-64 bg-secondary-container/20 rounded-full blur-3xl pointer-events-none"></div>
-          <div class="relative shrink-0">
-            <div class="w-20 h-20 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-surface-bright bg-primary text-white flex items-center justify-center font-display-lg text-xl md:text-3xl font-extrabold">
-              {{ featuredProf.name.split(' ').map(n => n[0]).slice(0, 2).join('') }}
-            </div>
-            <div class="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-lg">
-              <span class="material-symbols-outlined text-green-600 bg-green-100 rounded-full p-1" style="font-variation-settings: 'FILL' 1;">verified</span>
-            </div>
-          </div>
-          <div class="flex-1">
-            <h2 class="font-headline-lg text-lg md:text-headline-lg text-primary mb-1 text-center md:text-left">
-              <router-link :to="`/professor/${featuredProf.id}`" class="hover:underline">
-                {{ featuredProf.name }}
-              </router-link>
+    <!-- BAND 3: Recent Teacher Reviews (#F8F5F7) -->
+    <section class="bg-band-light px-4 md:px-gutter py-14 md:py-16">
+      <div class="max-w-container-max mx-auto space-y-10">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <!-- Left Editorial Column -->
+          <div class="lg:col-span-4 space-y-4">
+            <p class="ed-eyebrow">01 / The latest on campus</p>
+            <h2 class="font-display text-3xl md:text-4xl font-extrabold text-ink-dark leading-[1.06]">
+              Recent teacher reviews
             </h2>
-            <p class="font-body-lg text-sm md:text-body-lg text-on-surface-variant flex items-center justify-center md:justify-start gap-2 mb-3 md:mb-4">
-              <span class="material-symbols-outlined text-[16px] md:text-[18px]">domain</span> {{ featuredProf.departmentName }}
+            <p class="text-sm text-ink-muted leading-relaxed">
+              Honest experiences.<br />
+              A little less guesswork.
             </p>
-            <div class="flex flex-wrap justify-center md:justify-start gap-2">
-              <span v-for="tag in featuredProf.tags" :key="tag" class="bg-surface-container text-on-surface-variant px-3 py-1 rounded-full font-label-sm text-label-sm border border-outline-variant/30">
-                {{ tag }}
-              </span>
+            <div class="pt-2">
+              <router-link
+                to="/search"
+                class="inline-flex items-center gap-6 text-xs font-semibold text-ink-dark hover:text-primary transition-colors"
+              >
+                <span>View catalogue</span>
+                <span aria-hidden="true">→</span>
+              </router-link>
             </div>
-          </div>
-          <!-- Recommendation Ring -->
-          <div class="flex flex-col items-center justify-center shrink-0 w-24 h-24 md:w-32 md:h-32 relative">
-            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" fill="none" r="45" stroke="#f3f4f6" stroke-width="8"></circle>
-              <circle class="transition-all duration-1000 ease-out drop-shadow-md" cx="50" cy="50" fill="none" r="45" stroke="#2E9E4F" stroke-dasharray="283" stroke-dashoffset="17" stroke-linecap="round" stroke-width="8"></circle>
-            </svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span class="font-stat-display text-stat-display text-primary">
-                {{ Math.round((featuredProf.overallRating / 5) * 100) }}%
-              </span>
-            </div>
-            <span class="absolute -bottom-5 md:-bottom-6 font-label-sm text-[10px] md:text-label-sm text-on-surface-variant text-center w-full">Recommend</span>
-          </div>
-        </div>
 
-        <!-- Stat Boxes Grid -->
-        <div class="lg:col-span-4 grid grid-cols-2 gap-3 md:gap-4">
-          <div class="bg-[#EFE5FA] rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col justify-between h-24 md:h-32 transition-transform hover:scale-[1.02]">
-            <div class="flex justify-between items-start">
-              <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Overall</span>
-              <span class="material-symbols-outlined text-green-600 text-[16px]">trending_up</span>
-            </div>
-            <div class="font-stat-display text-xl md:text-stat-display text-[#6B2FA0]">
-              {{ featuredProf.overallRating.toFixed(1) }}<span class="text-lg text-[#6B2FA0]/60">/5</span>
-            </div>
-          </div>
-
-          <div class="bg-[#EFE5FA] rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col justify-between h-24 md:h-32 transition-transform hover:scale-[1.02]">
-            <div class="flex justify-between items-start">
-              <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Teaching</span>
-              <span class="material-symbols-outlined text-green-600 text-[16px]">trending_up</span>
-            </div>
-            <div class="font-stat-display text-xl md:text-stat-display text-[#6B2FA0]">
-              {{ (featuredProf.avgTeaching * 2).toFixed(1) }}<span class="text-lg text-[#6B2FA0]/60">/10</span>
-            </div>
-          </div>
-
-          <div class="bg-[#EFE5FA] rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col justify-between h-24 md:h-32 transition-transform hover:scale-[1.02]">
-            <div class="flex justify-between items-start">
-              <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Fairness</span>
-              <span class="material-symbols-outlined text-on-surface-variant/50 text-[16px]">horizontal_rule</span>
-            </div>
-            <div class="font-stat-display text-xl md:text-stat-display text-[#6B2FA0]">
-              {{ (featuredProf.avgGrading * 2).toFixed(1) }}<span class="text-lg text-[#6B2FA0]/60">/10</span>
+            <!-- Featured Top Rated Faculty Compact Card (when professors exist) -->
+            <div v-if="!isLoading && featuredProf" class="pt-4">
+              <div class="ed-card p-5 space-y-3.5">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="ed-eyebrow text-primary">Top rated</span>
+                  <RatingBadge :score="featuredProf.overallRating" size="sm" show-scale />
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-primary-soft text-primary flex items-center justify-center font-mono text-xs font-bold shrink-0">
+                    {{ getInitials(featuredProf.name) }}
+                  </div>
+                  <div class="min-w-0">
+                    <router-link
+                      :to="`/professor/${featuredProf.id}`"
+                      class="font-bold text-sm text-ink-dark hover:text-primary block truncate"
+                    >
+                      {{ featuredProf.name }}
+                    </router-link>
+                    <p class="text-xs text-ink-subtle truncate">{{ featuredProf.departmentName }}</p>
+                  </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 pt-1 text-center font-mono text-[11px] bg-surface-recessed rounded-xl p-2.5">
+                  <div>
+                    <span class="block text-[9px] uppercase text-ink-subtle">Teach</span>
+                    <strong class="text-ink-dark tabular-nums">{{ featuredProf.avgTeaching.toFixed(1) }}</strong>
+                  </div>
+                  <div>
+                    <span class="block text-[9px] uppercase text-ink-subtle">Grade</span>
+                    <strong class="text-ink-dark tabular-nums">{{ featuredProf.avgGrading.toFixed(1) }}</strong>
+                  </div>
+                  <div>
+                    <span class="block text-[9px] uppercase text-ink-subtle">Load</span>
+                    <strong class="text-warning tabular-nums">{{ featuredProf.avgWorkload.toFixed(1) }}</strong>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="bg-[#EFE5FA] rounded-xl md:rounded-2xl p-3 md:p-4 flex flex-col justify-between h-24 md:h-32 transition-transform hover:scale-[1.02]">
-            <div class="flex justify-between items-start">
-              <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Workload</span>
-              <span class="material-symbols-outlined text-red-500 text-[16px]">trending_down</span>
+          <!-- Right Content Column -->
+          <div class="lg:col-span-8">
+            <!-- Loading Skeletons -->
+            <div v-if="isLoading" class="space-y-4">
+              <div class="ed-card p-8 space-y-4">
+                <div class="ed-skeleton h-4 w-40"></div>
+                <div class="ed-skeleton h-7 w-2/3"></div>
+                <div class="ed-skeleton h-4 w-full"></div>
+                <div class="ed-skeleton h-10 w-64 rounded-full"></div>
+              </div>
             </div>
-            <div class="font-stat-display text-xl md:text-stat-display text-[#6B2FA0]">
-              {{ (featuredProf.avgWorkload * 2).toFixed(1) }}<span class="text-lg text-[#6B2FA0]/60">/10</span>
+
+            <!-- Live Reviews Feed -->
+            <div v-else-if="reviewsList.length > 0" class="space-y-5">
+              <ReviewCard v-for="rev in reviewsList" :key="rev.id" :review="rev" :show-professor="true" />
+            </div>
+
+            <!-- Empty State Card (Exact Match to Mockup) -->
+            <div v-else class="ed-card p-7 sm:p-10 space-y-6">
+              <div class="flex items-start justify-between gap-4">
+                <span class="ed-eyebrow">The conversation is open</span>
+                <div class="text-right">
+                  <span class="ed-eyebrow block">0 reviews</span>
+                  <span class="font-serif text-5xl leading-none text-primary block mt-1 select-none" aria-hidden="true">“</span>
+                </div>
+              </div>
+
+              <div class="space-y-3 -mt-3">
+                <h3 class="font-display text-2xl sm:text-3xl font-extrabold text-ink-dark leading-tight">
+                  Every review starts<br />with one student.
+                </h3>
+                <p class="text-sm text-ink-muted max-w-md leading-relaxed">
+                  No reviews published yet. Be the first to share your experience and help someone choose their next class with confidence.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
+                <div class="flex flex-wrap items-center gap-3">
+                  <router-link
+                    to="/review/new"
+                    class="ed-btn-primary px-6 py-2.5 text-xs font-semibold inline-flex items-center gap-4"
+                  >
+                    <span>Write a review</span>
+                    <span aria-hidden="true">→</span>
+                  </router-link>
+                  <router-link
+                    to="/search"
+                    class="ed-btn-soft px-6 py-2.5 text-xs font-semibold inline-flex items-center gap-4"
+                  >
+                    <span>Add a teacher</span>
+                    <span aria-hidden="true">→</span>
+                  </router-link>
+                </div>
+
+                <span class="inline-flex items-center gap-1.5 text-[11px] text-ink-subtle">
+                  <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5" aria-hidden="true">
+                    <rect x="3.5" y="7" width="9" height="6.5" rx="1.5" stroke="currentColor" stroke-width="1.3" />
+                    <path d="M5.5 7V5.2C5.5 3.8 6.6 2.8 8 2.8C9.4 2.8 10.5 3.8 10.5 5.2V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                  </svg>
+                  <span>Your name never appears</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Recent Reviews Section -->
-    <section class="mt-stack-lg">
-      <div class="flex justify-between items-end mb-6 border-b border-surface-variant pb-4">
-        <h2 class="font-headline-md text-headline-md font-bold text-on-surface">
-          Recent Teacher Reviews <span class="text-outline text-lg font-normal ml-2">({{ reviewsList.length }})</span>
-        </h2>
-        <router-link to="/search" class="font-label-sm text-label-sm text-primary font-bold hover:underline">
-          View Catalog →
-        </router-link>
-      </div>
+    <!-- BAND 4: Before You Register (#E2DCE8) -->
+    <section class="bg-band-lilac px-4 md:px-gutter pt-12 pb-10">
+      <div class="max-w-container-max mx-auto space-y-7">
+        <div class="space-y-1.5">
+          <p class="ed-eyebrow">02 / Before you register</p>
+          <h2 class="font-display text-2xl sm:text-3xl font-extrabold text-ink-dark">
+            A little research goes a long way.
+          </h2>
+        </div>
 
-      <div v-if="reviewsList.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-stack-md">
-        <div
-          v-for="rev in reviewsList"
-          :key="rev.id"
-          class="bg-surface-container-lowest rounded-2xl md:rounded-3xl shadow-2xl-ambient p-5 md:p-8 relative flex flex-col justify-between"
-        >
-          <div>
-            <div class="flex justify-between items-start mb-4 md:mb-6">
-              <div class="flex gap-2 md:gap-3 items-center">
-                <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed font-bold text-sm md:text-lg font-stat-display">
-                  {{ rev.courseCode ? rev.courseCode.substring(0, 2) : 'SK' }}
-                </div>
-                <div>
-                  <div class="flex items-center gap-2">
-                    <span class="font-bold text-on-surface font-body-md text-sm md:text-body-md">{{ rev.professorName }}</span>
-                    <span class="bg-[#2E9E4F]/10 text-[#2E9E4F] px-1.5 md:px-2 py-0.5 rounded font-label-sm text-[8px] md:text-[10px] uppercase font-bold hidden sm:flex items-center gap-1">
-                      <span class="material-symbols-outlined text-[12px]">school</span> Verified
-                    </span>
-                  </div>
-                  <div class="text-outline font-label-sm text-label-sm flex items-center gap-1 mt-0.5">
-                    <span class="material-symbols-outlined text-[14px]">lock</span> 100% Anonymous • {{ rev.semesterTaken }}
-                  </div>
-                </div>
-              </div>
-              <div class="flex flex-col items-end">
-                <div class="bg-[#2E9E4F] text-white font-bold px-3 py-1 rounded-lg text-lg mb-1 shadow-sm font-stat-display">
-                  {{ rev.overallScore.toFixed(1) }}
-                </div>
-                <span class="font-label-sm text-[10px] text-outline uppercase tracking-wide">Overall</span>
-              </div>
-            </div>
-
-            <p class="font-body-md text-xs md:text-body-md text-on-surface-variant mb-4 md:mb-6 leading-relaxed">
-              {{ rev.comment }}
-            </p>
-          </div>
-
-          <div class="flex justify-between items-center border-t border-surface-variant pt-4 mt-4">
-            <div class="flex gap-4">
-              <div class="flex flex-col gap-1 w-24">
-                <span class="font-label-sm text-[10px] uppercase text-outline font-bold">Teaching</span>
-                <div class="h-1.5 w-full bg-surface-variant rounded-full overflow-hidden">
-                  <div class="h-full bg-secondary" :style="{ width: `${(rev.ratingTeaching / 5) * 100}%` }"></div>
-                </div>
-              </div>
-              <div class="flex flex-col gap-1 w-24">
-                <span class="font-label-sm text-[10px] uppercase text-outline font-bold">Workload</span>
-                <div class="h-1.5 w-full bg-surface-variant rounded-full overflow-hidden">
-                  <div class="h-full bg-error" :style="{ width: `${(rev.ratingWorkload / 5) * 100}%` }"></div>
-                </div>
-              </div>
-            </div>
-            <span class="font-label-sm text-label-sm text-outline">
-              Helpful ({{ rev.helpfulCount }})
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div class="ed-step-card p-6 flex items-start gap-4">
+            <span class="w-11 h-11 rounded-xl bg-band-light/70 border border-white/80 flex items-center justify-center font-serif italic text-xl text-primary shrink-0">
+              01
             </span>
+            <div class="space-y-1.5">
+              <h3 class="text-sm font-bold text-ink-dark">Find your professor</h3>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Search by name or browse courses to see who's teaching your next class.
+              </p>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Clean Empty State when no reviews exist yet -->
-      <div v-else class="text-center py-10 md:py-16 bg-white rounded-2xl md:rounded-3xl shadow-2xl-ambient p-5 md:p-8 max-w-lg mx-auto">
-        <div class="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto text-3xl mb-4">
-          <span class="material-symbols-outlined text-[32px]">rate_review</span>
-        </div>
-        <h3 class="text-xl font-bold text-on-surface mb-2">No reviews published yet</h3>
-        <p class="text-sm text-on-surface-variant mb-6">
-          Be the first student to add a teacher and share anonymous feedback for your campus!
-        </p>
-        <div class="flex justify-center gap-3">
-          <router-link to="/search" class="bg-primary text-white px-6 py-2.5 rounded-full font-label-sm text-xs font-bold hover:bg-[#6B2FA0] transition-colors shadow-md">
-            + Add Teacher
-          </router-link>
-          <router-link to="/review/new" class="border border-outline-variant/40 text-primary px-6 py-2.5 rounded-full font-label-sm text-xs font-bold hover:bg-surface-variant transition-colors">
-            Write Review
-          </router-link>
+          <div class="ed-step-card p-6 flex items-start gap-4">
+            <span class="w-11 h-11 rounded-xl bg-band-light/70 border border-white/80 flex items-center justify-center font-serif italic text-xl text-primary shrink-0">
+              02
+            </span>
+            <div class="space-y-1.5">
+              <h3 class="text-sm font-bold text-ink-dark">Get the student perspective</h3>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Read real experiences to understand the teaching style, workload and expectations.
+              </p>
+            </div>
+          </div>
+
+          <div class="ed-step-card p-6 flex items-start gap-4">
+            <span class="w-11 h-11 rounded-xl bg-band-light/70 border border-white/80 flex items-center justify-center font-serif italic text-xl text-primary shrink-0">
+              03
+            </span>
+            <div class="space-y-1.5">
+              <h3 class="text-sm font-bold text-ink-dark">Pay it forward</h3>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Verify your student email and share an anonymous review of your own.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </section>

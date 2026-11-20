@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import RatingBadge from '../components/ui/RatingBadge.vue';
 import ReviewCard from '../components/ui/ReviewCard.vue';
@@ -18,17 +18,24 @@ const isLoading = ref(true);
 
 const courseId = computed(() => route.params.id as string);
 
-onMounted(async () => {
+async function loadCourse() {
+  isLoading.value = true;
   try {
     const cData = await api.getCourseById(courseId.value);
     if (cData) {
       course.value = cData;
       reviews.value = await api.getReviewsForCourse(courseId.value);
+    } else {
+      course.value = null;
+      reviews.value = [];
     }
   } finally {
     isLoading.value = false;
   }
-});
+}
+
+onMounted(loadCourse);
+watch(courseId, loadCourse);
 
 function handleWriteReview() {
   if (!authStore.isVerified) {
@@ -40,204 +47,108 @@ function handleWriteReview() {
 </script>
 
 <template>
-  <div class="course-page container">
-    <LoadingSpinner v-if="isLoading" text="Loading course profile..." />
+  <main class="w-full">
+    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
+      <div class="max-w-container-max mx-auto">
+        <LoadingSpinner v-if="isLoading" text="Loading course profile..." :rows="2" />
 
-    <div v-else-if="course">
-      <!-- ERP-Style Course Header Card -->
-      <div class="course-header-card erp-card">
-        <div class="header-top">
-          <div>
-            <div class="code-badge">📚 {{ course.code }} • {{ course.creditHours }} Credit Hours</div>
-            <h1 class="course-title">{{ course.title }}</h1>
-            <p class="dept-text">Department of {{ course.departmentName }} • Superior University</p>
+        <div v-else-if="course" class="ed-card p-6 md:p-8 space-y-6">
+          <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div class="space-y-1">
+              <p class="ed-eyebrow text-primary">
+                {{ course.code }} · {{ course.creditHours }} Credit Hours
+              </p>
+              <h1 class="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold text-ink-dark">
+                {{ course.title }}
+              </h1>
+              <p class="text-sm text-ink-muted">
+                Department of {{ course.departmentName }} · Superior University
+              </p>
+            </div>
+
+            <div class="flex flex-col items-start sm:items-end gap-1">
+              <RatingBadge :score="course.avgRating" size="lg" show-scale />
+              <span class="ed-eyebrow tabular-nums">{{ reviews.length }} reviews</span>
+            </div>
           </div>
 
-          <div class="rating-box">
-            <RatingBadge :score="course.avgRating" size="lg" />
-            <span class="reviews-count">{{ course.totalReviews }} verified reviews</span>
+          <p class="text-sm text-ink-muted leading-relaxed">
+            {{ course.description }}
+          </p>
+
+          <div class="bg-surface-recessed rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle">Average score</div>
+              <div class="font-mono text-xl font-bold text-primary tabular-nums mt-0.5">
+                {{ course.avgRating.toFixed(1) }}/5
+              </div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle">Credit hours</div>
+              <div class="font-mono text-xl font-bold text-ink-dark tabular-nums mt-0.5">
+                {{ course.creditHours }}
+              </div>
+            </div>
+            <div>
+              <div class="font-mono text-[10px] uppercase text-ink-subtle">Student feedback</div>
+              <div class="font-mono text-xl font-bold text-ink-dark tabular-nums mt-0.5">
+                {{ reviews.length }}
+              </div>
+            </div>
+          </div>
+
+          <div v-if="course.aiSummary" class="bg-surface-recessed rounded-2xl p-4 space-y-1">
+            <p class="ed-eyebrow text-primary">Course overview summary</p>
+            <p class="text-sm text-ink-muted leading-relaxed">{{ course.aiSummary }}</p>
           </div>
         </div>
+      </div>
+    </section>
 
-        <p class="course-desc">{{ course.description }}</p>
+    <section class="bg-band-light px-4 md:px-gutter py-10 min-h-[45vh]">
+      <div class="max-w-container-max mx-auto space-y-6">
+        <template v-if="!isLoading && course">
+          <div class="flex flex-wrap justify-between items-center gap-3 pb-3 border-b border-border-soft">
+            <div class="flex items-baseline gap-2.5">
+              <h2 class="text-xl font-extrabold text-ink-dark">Course reviews</h2>
+              <span class="ed-eyebrow tabular-nums">({{ reviews.length }})</span>
+            </div>
 
-        <!-- Stat Boxes Row -->
-        <div class="stat-boxes-grid">
-          <div class="erp-stat-box">
-            <span class="erp-stat-number">{{ course.avgRating.toFixed(1) }}</span>
-            <span class="erp-stat-label">Average Score</span>
+            <button
+              type="button"
+              class="ed-btn-primary px-5 py-2.5 text-xs font-semibold cursor-pointer inline-flex items-center gap-2"
+              @click="handleWriteReview"
+            >
+              <span>Write a review</span>
+              <span aria-hidden="true">→</span>
+            </button>
           </div>
-          <div class="erp-stat-box">
-            <span class="erp-stat-number">{{ course.creditHours }}</span>
-            <span class="erp-stat-label">Credit Hours</span>
+
+          <div v-if="reviews.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ReviewCard v-for="rev in reviews" :key="rev.id" :review="rev" :show-professor="true" />
           </div>
-          <div class="erp-stat-box">
-            <span class="erp-stat-number">{{ reviews.length }}</span>
-            <span class="erp-stat-label">Student Feedback</span>
+
+          <div v-else class="ed-card p-9 text-center max-w-md mx-auto space-y-4">
+            <p class="text-sm text-ink-muted">
+              No reviews posted yet for {{ course.code }}. Share your experience with fellow Superior students.
+            </p>
+            <button
+              type="button"
+              class="ed-btn-primary px-6 py-2.5 text-xs font-semibold cursor-pointer"
+              @click="handleWriteReview"
+            >
+              Submit first review →
+            </button>
           </div>
+        </template>
+
+        <div v-else-if="!isLoading" class="ed-card p-10 text-center max-w-md mx-auto space-y-4">
+          <h2 class="text-2xl font-extrabold text-ink-dark">Course not found</h2>
+          <router-link to="/courses" class="ed-btn-primary inline-block px-6 py-2.5 text-xs font-semibold">
+            Return to courses →
+          </router-link>
         </div>
       </div>
-
-      <!-- AI Course Summary -->
-      <div v-if="course.aiSummary" class="ai-summary-card">
-        <div class="ai-header">
-          <span class="sparkle-icon">✨</span>
-          <span class="ai-title">AI Summary of Course Reviews</span>
-        </div>
-        <p class="ai-text">{{ course.aiSummary }}</p>
-      </div>
-
-      <!-- Reviews Section -->
-      <div class="reviews-section-header">
-        <h2>Course Reviews & Ratings ({{ reviews.length }})</h2>
-
-        <button type="button" class="write-btn" @click="handleWriteReview">
-          ✍️ Write a Review
-        </button>
-      </div>
-
-      <div v-if="reviews.length > 0" class="reviews-list">
-        <ReviewCard v-for="rev in reviews" :key="rev.id" :review="rev" />
-      </div>
-
-      <div v-else class="erp-card empty-reviews">
-        <p>No reviews posted yet for {{ course.code }}. Help Superior students by sharing your experience!</p>
-        <button type="button" class="write-btn" @click="handleWriteReview">
-          Submit First Review
-        </button>
-      </div>
-    </div>
-
-    <div v-else class="not-found container">
-      <h2>Course Not Found</h2>
-      <router-link to="/search" class="back-link">← Return to Catalog</router-link>
-    </div>
-  </div>
+    </section>
+  </main>
 </template>
-
-<style scoped>
-.course-page {
-  padding-top: 2rem;
-  padding-bottom: 4rem;
-}
-
-.course-header-card {
-  margin-bottom: 2rem;
-}
-
-.header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1.5rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-
-.code-badge {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--primary-700);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.25rem;
-}
-
-.course-title {
-  font-size: 2.1rem;
-  line-height: 1.2;
-}
-
-.dept-text {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
-.rating-box {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.35rem;
-}
-
-.reviews-count {
-  font-size: 0.825rem;
-  color: var(--text-secondary);
-}
-
-.course-desc {
-  margin: 1.25rem 0 1.5rem 0;
-  font-size: 0.975rem;
-  color: var(--text-primary);
-  line-height: 1.6;
-}
-
-.stat-boxes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1.25rem;
-  padding-top: 1rem;
-}
-
-/* AI Summary */
-.ai-summary-card {
-  background: var(--info-bg);
-  border: 1px solid rgba(45, 111, 209, 0.2);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.ai-header {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.35rem;
-}
-
-.ai-title {
-  font-family: var(--font-heading);
-  font-weight: 700;
-  color: var(--info);
-  font-size: 0.875rem;
-  text-transform: uppercase;
-}
-
-.ai-text {
-  font-size: 0.95rem;
-  color: #1E3A8A;
-  line-height: 1.55;
-}
-
-.reviews-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-}
-
-.write-btn {
-  background: var(--primary-700);
-  color: #FFFFFF;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  padding: 0.55rem 1.15rem;
-  border-radius: var(--radius-full);
-  font-size: 0.875rem;
-  transition: background var(--transition-fast);
-}
-
-.write-btn:hover {
-  background: var(--primary-900);
-}
-
-.empty-reviews {
-  text-align: center;
-  padding: 3rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-</style>

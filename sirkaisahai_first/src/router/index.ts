@@ -6,6 +6,8 @@ import ProfessorPage from '../pages/ProfessorPage.vue';
 import CoursePage from '../pages/CoursePage.vue';
 import SubmitReviewPage from '../pages/SubmitReviewPage.vue';
 import BrowseCoursesPage from '../pages/BrowseCoursesPage.vue';
+import PrivacyPage from '../pages/PrivacyPage.vue';
+import TermsPage from '../pages/TermsPage.vue';
 import { useAuthStore } from '../stores/auth';
 
 const router = createRouter({
@@ -47,6 +49,16 @@ const router = createRouter({
       component: SubmitReviewPage
     },
     {
+      path: '/privacy',
+      name: 'privacy',
+      component: PrivacyPage
+    },
+    {
+      path: '/terms',
+      name: 'terms',
+      component: TermsPage
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/'
     }
@@ -59,7 +71,7 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore();
   if (to.path === '/review/new' && !authStore.isVerified) {
-    next({ path: '/auth', query: { redirect: '/review/new' } });
+    next({ path: '/auth', query: { redirect: to.fullPath || '/review/new' } });
   } else {
     next();
   }
