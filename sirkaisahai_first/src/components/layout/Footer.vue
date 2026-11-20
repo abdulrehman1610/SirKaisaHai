@@ -1,187 +1,106 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import AppLogo from '../ui/AppLogo.vue';
 
 const currentYear = new Date().getFullYear();
-const isHovered = ref(false);
 </script>
 
 <template>
-  <footer class="modern-footer mt-12 md:mt-24 relative overflow-hidden">
-    <!-- Ambient Background Effects -->
-    <div class="absolute inset-0 bg-primary overflow-hidden -z-10">
-      <div class="absolute -top-[50%] -left-[10%] w-[70%] h-[150%] bg-gradient-to-br from-[#6B2FA0]/40 to-transparent rounded-[100%] blur-[120px] mix-blend-overlay animate-pulse-slow"></div>
-      <div class="absolute -bottom-[50%] -right-[10%] w-[60%] h-[150%] bg-gradient-to-tl from-[#2D6FD1]/30 to-transparent rounded-[100%] blur-[100px] mix-blend-overlay"></div>
-    </div>
-
-    <div class="max-w-container-max mx-auto px-4 md:px-gutter pt-10 md:pt-20 pb-6 md:pb-8 relative z-10">
-      <!-- Floating Glass Card for Main Content -->
-      <div class="glass-footer-card rounded-2xl md:rounded-[2rem] p-5 md:p-12 shadow-2xl-ambient border border-white/10 relative overflow-hidden mb-8 md:mb-12 transform transition-transform duration-700 hover:-translate-y-2"
-           @mouseenter="isHovered = true" 
-           @mouseleave="isHovered = false">
-        
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-12 relative z-10">
-          
-          <!-- Brand Column -->
-          <div class="md:col-span-5 flex flex-col justify-between">
-            <div>
-              <div class="mb-4">
-                <AppLogo size="lg" textColor="text-white" />
-              </div>
-              <p class="font-body-lg text-white/70 leading-relaxed max-w-sm font-medium">
+  <footer class="max-w-container-max mx-auto px-4 md:px-gutter pt-12 pb-10 w-full">
+    <div class="neu-surface-lg p-5 sm:p-7 md:p-8 space-y-5">
+      <!-- Inner Recessed Tray (Exact Double-Layered Soft UI Frame) -->
+      <div class="neu-inset-tray p-6 sm:p-8 md:p-10">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10">
+          <!-- Column 1: Brand & Quick Links -->
+          <div class="md:col-span-5 flex flex-col justify-between gap-6">
+            <div class="space-y-3">
+              <AppLogo size="md" :boxed="false" />
+              <p class="text-[13px] text-on-surface-variant leading-relaxed max-w-xs">
                 Elevating transparency at Superior University. 100% anonymous, student-driven insights.
               </p>
             </div>
-            
-            <div class="mt-4 md:mt-8 flex gap-4">
-              <a href="#" class="social-btn">
-                <span class="material-symbols-outlined">link</span>
+
+            <div class="flex items-center gap-3">
+              <a
+                href="https://github.com/abdulrehman1610/sirkaisahai"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="neu-tile w-9 h-9 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
+                aria-label="GitHub repository"
+              >
+                <svg viewBox="0 0 20 20" fill="none" class="w-4 h-4">
+                  <path
+                    d="M10 2.5C5.86 2.5 2.5 5.86 2.5 10C2.5 13.32 4.65 16.12 7.63 17.11C8 17.18 8.14 16.95 8.14 16.75C8.14 16.57 8.13 15.98 8.13 15.35C6.25 15.7 5.76 14.9 5.61 14.48C5.53 14.27 5.16 13.62 4.84 13.44C4.58 13.3 4.21 12.95 4.83 12.94C5.42 12.93 5.84 13.48 5.98 13.71C6.65 14.84 7.72 14.52 8.17 14.32C8.24 13.84 8.43 13.51 8.64 13.32C6.97 13.13 5.23 12.48 5.23 9.61C5.23 8.79 5.52 8.12 6 7.6C5.92 7.41 5.66 6.64 6.08 5.6C6.08 5.6 6.71 5.4 8.14 6.37C8.74 6.2 9.38 6.12 10.02 6.12C10.66 6.12 11.3 6.2 11.9 6.37C13.33 5.39 13.96 5.6 13.96 5.6C14.38 6.64 14.12 7.41 14.04 7.6C14.52 8.12 14.81 8.78 14.81 9.61C14.81 12.49 13.06 13.13 11.39 13.32C11.66 13.55 11.89 14 11.89 14.7C11.89 15.7 11.88 16.5 11.88 16.75C11.88 16.95 12.02 17.19 12.39 17.11C15.36 16.12 17.5 13.31 17.5 10C17.5 5.86 14.14 2.5 10 2.5Z"
+                    stroke="currentColor"
+                    stroke-width="1.35"
+                    stroke-linejoin="round"
+                  />
+                </svg>
               </a>
-              <a href="#" class="social-btn">
-                <span class="material-symbols-outlined">mail</span>
-              </a>
+              <router-link
+                to="/privacy"
+                class="neu-tile w-9 h-9 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
+                aria-label="Privacy policy"
+              >
+                <svg viewBox="0 0 20 20" fill="none" class="w-4 h-4">
+                  <rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.4" />
+                  <path d="M4 6.5L10 11L16 6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </router-link>
             </div>
           </div>
 
-          <!-- Links Grid -->
-          <div class="md:col-span-7 grid grid-cols-2 gap-4 md:gap-8">
-            <div class="nav-column">
-              <h4 class="column-title">Explore</h4>
-              <ul class="nav-list">
-                <li><router-link to="/search" class="nav-link">Top Professors</router-link></li>
-                <li><router-link to="/search" class="nav-link">Course Reviews</router-link></li>
-                <li><router-link to="/auth" class="nav-link">Student Verification</router-link></li>
-              </ul>
-            </div>
-            
-            <div class="nav-column">
-              <h4 class="column-title">Our Promise</h4>
-              <ul class="nav-list">
-                <li class="flex items-center gap-2 text-white/80"><span class="material-symbols-outlined text-sm text-green-400">shield</span> Zero Tracking</li>
-                <li class="flex items-center gap-2 text-white/80"><span class="material-symbols-outlined text-sm text-green-400">lock</span> SHA-256 Hashed</li>
-                <li class="flex items-center gap-2 text-white/80"><span class="material-symbols-outlined text-sm text-green-400">gavel</span> Moderated</li>
-              </ul>
-            </div>
+          <!-- Column 2: Explore -->
+          <div class="md:col-span-3 space-y-3.5">
+            <h4 class="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface">Explore</h4>
+            <ul class="space-y-2.5 text-[13px] text-on-surface-variant">
+              <li>
+                <router-link to="/search" class="hover:text-primary transition-colors">Top Professors</router-link>
+              </li>
+              <li>
+                <router-link to="/courses" class="hover:text-primary transition-colors">Course Reviews</router-link>
+              </li>
+              <li>
+                <router-link to="/auth" class="hover:text-primary transition-colors">Student Verification</router-link>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Column 3: Our Promise & Legal -->
+          <div class="md:col-span-4 space-y-3.5">
+            <h4 class="text-[11px] font-bold uppercase tracking-[0.14em] text-on-surface">Our Promise</h4>
+            <ul class="space-y-2.5 text-[13px] text-on-surface-variant">
+              <li class="flex items-center gap-2">
+                <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5 text-primary shrink-0">
+                  <path d="M3.5 8.5L6.5 11.5L12.5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Zero Tracking</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5 text-primary shrink-0">
+                  <path d="M3.5 8.5L6.5 11.5L12.5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>SHA-256 Hashed</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5 text-primary shrink-0">
+                  <path d="M3.5 8.5L6.5 11.5L12.5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Moderated</span>
+              </li>
+            </ul>
           </div>
         </div>
-
-        <!-- Decorative animated line -->
-        <div class="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-secondary to-action-blue transition-all duration-1000 ease-in-out"
-             :class="isHovered ? 'w-full' : 'w-0'"></div>
       </div>
 
-      <!-- Bottom Bar -->
-      <div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-6 border-t border-white/10 font-label-sm text-xs text-white/50 font-medium tracking-wide">
-        <p>© {{ currentYear }} SirKaisaHai — Superior University Edition.</p>
-        <p class="flex items-center gap-1">
-          Built with <span class="material-symbols-outlined text-red-400 text-sm animate-pulse">favorite</span> by students
-        </p>
+      <!-- Bottom Copyright Row -->
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-2 px-1 text-[11px] text-outline">
+        <p>© {{ currentYear }} SirKaisaHai · Superior University edition</p>
+        <div class="flex items-center gap-4">
+          <router-link to="/privacy" class="hover:text-primary transition-colors">Privacy</router-link>
+          <router-link to="/terms" class="hover:text-primary transition-colors">Terms</router-link>
+          <span>Built with care. By students.</span>
+        </div>
       </div>
     </div>
   </footer>
 </template>
-
-<style scoped>
-.modern-footer {
-  border-top-left-radius: 1.5rem;
-  border-top-right-radius: 1.5rem;
-}
-
-@media (min-width: 768px) {
-  .modern-footer {
-    border-top-left-radius: 3rem;
-    border-top-right-radius: 3rem;
-  }
-}
-
-.glass-footer-card {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-.column-title {
-  font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 1rem;
-  color: var(--secondary-fixed);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 1.5rem;
-  position: relative;
-  display: inline-block;
-}
-
-.column-title::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -4px;
-  width: 20px;
-  height: 2px;
-  background: var(--secondary-fixed);
-  border-radius: 2px;
-}
-
-.nav-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.nav-link {
-  font-family: var(--font-body);
-  font-size: 1rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
-  transition: all 0.3s ease;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.nav-link::before {
-  content: '→';
-  position: absolute;
-  left: -20px;
-  opacity: 0;
-  transform: translateX(-10px);
-  transition: all 0.3s ease;
-  color: var(--secondary-fixed);
-}
-
-.nav-link:hover {
-  color: #FFFFFF;
-  transform: translateX(20px);
-}
-
-.nav-link:hover::before {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.social-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.social-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-  border-color: var(--secondary-fixed);
-  color: var(--secondary-fixed);
-}
-
-.animate-pulse-slow {
-  animation: pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-</style>

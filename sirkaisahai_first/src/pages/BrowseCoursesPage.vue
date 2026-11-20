@@ -1,60 +1,71 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
-
-const router = useRouter();
-
-function goHome() {
-  router.push('/');
-}
-
-function goSearchProfessors() {
-  router.push({ path: '/search', query: { tab: 'professors' } });
-}
+import { mockCourses } from '../api/mockData';
+import RatingBadge from '../components/ui/RatingBadge.vue';
 </script>
 
 <template>
-  <main class="max-w-container-max mx-auto px-gutter py-stack-lg flex items-center justify-center min-h-[75vh]">
-    <div class="bg-white rounded-3xl p-8 md:p-14 custom-shadow shadow-2xl-ambient max-w-xl w-full text-center relative overflow-hidden">
-      <!-- Ambient Glow Decor -->
-      <div class="absolute -right-20 -top-20 w-64 h-64 bg-secondary-container/20 rounded-full blur-3xl pointer-events-none"></div>
-
-      <!-- Icon -->
-      <div class="w-20 h-20 bg-secondary-container/30 text-secondary-container text-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-        <span class="material-symbols-outlined text-4xl">construction</span>
+  <main class="max-w-container-max mx-auto px-4 md:px-gutter pt-4 pb-10 space-y-8">
+    <section class="neu-surface-lg px-6 py-9 sm:px-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+      <div class="space-y-2">
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-outline">
+          Course Reference Catalogue
+        </p>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-primary">
+          Browse Courses
+        </h1>
+        <p class="text-sm text-on-surface-variant max-w-xl leading-relaxed">
+          Explore sample core Computing &amp; IT courses below. Live student reviews are currently indexed directly by professor in the faculty catalogue.
+        </p>
       </div>
 
-      <!-- Content -->
-      <span class="inline-block bg-secondary-container/50 text-secondary-accent px-4 py-1.5 rounded-full font-label-sm text-xs font-bold uppercase tracking-wider mb-4">
-        Module Under Construction
-      </span>
+      <router-link
+        to="/search"
+        class="neu-btn-primary px-6 py-2.5 text-xs font-semibold self-start md:self-center shrink-0"
+      >
+        Browse Professors
+      </router-link>
+    </section>
 
-      <h1 class="font-display-lg text-display-lg text-primary text-3xl md:text-4xl mb-4">
-        Still Working On It!
-      </h1>
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <article
+        v-for="course in mockCourses"
+        :key="course.id"
+        class="neu-card p-6 flex flex-col justify-between gap-5"
+      >
+        <div class="space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <div class="font-mono text-xs font-bold text-primary">
+                {{ course.code }} <span class="text-outline font-normal">· {{ course.creditHours }} Credit Hours</span>
+              </div>
+              <h2 class="text-lg font-bold text-on-surface">
+                <router-link :to="`/course/${course.id}`" class="hover:text-primary transition-colors">
+                  {{ course.title }}
+                </router-link>
+              </h2>
+              <p class="text-xs text-outline">{{ course.departmentName }}</p>
+            </div>
 
-      <p class="font-body-lg text-body-lg text-on-surface-variant mb-8 leading-relaxed">
-        The dedicated <strong>Browse Courses</strong> module is currently under active development. You can still search for professors directly!
-      </p>
+            <RatingBadge :score="course.avgRating" size="md" show-scale />
+          </div>
 
-      <!-- Buttons -->
-      <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <button
-          @click="goSearchProfessors"
-          class="bg-primary text-white px-8 py-3 rounded-full font-label-sm text-sm font-bold hover:bg-[#6B2FA0] transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-        >
-          <span class="material-symbols-outlined text-[18px]">person_search</span>
-          Search Professor
-        </button>
+          <p class="text-sm text-on-surface-variant leading-relaxed">
+            {{ course.description }}
+          </p>
+        </div>
 
-        <button
-          @click="goHome"
-          class="bg-surface-container-low text-on-surface border border-outline-variant/30 px-8 py-3 rounded-full font-label-sm text-sm font-bold hover:bg-surface-variant transition-colors"
-        >
-          Return to Home
-        </button>
-      </div>
-    </div>
+        <div class="flex items-center justify-between gap-3 pt-1">
+          <span class="font-mono text-xs text-outline tabular-nums">
+            {{ course.totalReviews }} reference notes
+          </span>
+          <router-link
+            :to="`/course/${course.id}`"
+            class="neu-pill-btn px-4 py-2 text-xs font-semibold text-primary"
+          >
+            View Course →
+          </router-link>
+        </div>
+      </article>
+    </section>
   </main>
 </template>
-
-<style scoped></style>

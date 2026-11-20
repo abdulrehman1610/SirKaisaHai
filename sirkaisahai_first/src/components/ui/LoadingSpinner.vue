@@ -1,44 +1,23 @@
 <script setup lang="ts">
-defineProps<{
-  text?: string;
-}>();
+withDefaults(
+  defineProps<{
+    text?: string;
+    rows?: number;
+  }>(),
+  {
+    text: '',
+    rows: 3
+  }
+);
 </script>
 
 <template>
-  <div class="loading-state">
-    <div class="spinner"></div>
-    <span v-if="text" class="loading-text">{{ text }}</span>
+  <div class="space-y-4 w-full py-2" role="status" aria-live="polite">
+    <div v-for="i in rows" :key="i" class="neu-card p-5 space-y-3">
+      <div class="neu-skeleton h-4 w-2/5"></div>
+      <div class="neu-skeleton h-3 w-full"></div>
+      <div class="neu-skeleton h-3 w-3/4"></div>
+    </div>
+    <span v-if="text" class="sr-only">{{ text }}</span>
   </div>
 </template>
-
-<style scoped>
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 1rem;
-  gap: 1rem;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--border-medium);
-  border-top-color: var(--accent-gold);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.loading-text {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-</style>

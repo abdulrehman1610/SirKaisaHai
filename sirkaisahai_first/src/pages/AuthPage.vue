@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
@@ -9,12 +9,62 @@ const route = useRoute();
 
 const step = ref<'email' | 'otp' | 'success'>(authStore.isVerified ? 'success' : 'email');
 const emailInput = ref(authStore.email || '');
-const otpInput = ref('');
+const otpDigits = ref<string[]>(['', '', '', '', '', '']);
+const otpRefs = ref<(HTMLInputElement | null)[]>([]);
 const isLoading = ref(false);
 const errorMsg = ref('');
 const successMsg = ref('');
+const showLogoutModal = ref(false);
 
+const otpInput = computed(() => otpDigits.value.join(''));
 const redirectPath = (route.query.redirect as string) || '/';
+
+function setOtpRef(el: unknown, index: number) {
+  otpRefs.value[index] = el as HTMLInputElement | null;
+}
+
+function handleDigitInput(index: number, event: Event) {
+  const input = event.target as HTMLInputElement;
+  const cleaned = input.value.replace(/\D/g, '');
+  if (!cleaned) {
+    otpDigits.value[index] = '';
+    return;
+  }
+
+  if (cleaned.length > 1) {
+    const chars = cleaned.slice(0, 6).split('');
+    chars.forEach((ch, idx) => {
+      if (idx < 6) otpDigits.value[idx] = ch;
+    });
+    const focusIdx = Math.min(chars.length, 5);
+    otpRefs.value[focusIdx]?.focus();
+    return;
+  }
+
+  otpDigits.value[index] = cleaned;
+  if (index < 5) {
+    otpRefs.value[index + 1]?.focus();
+  }
+}
+
+function handleDigitKeydown(index: number, event: KeyboardEvent) {
+  if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
+    otpDigits.value[index - 1] = '';
+    otpRefs.value[index - 1]?.focus();
+  }
+}
+
+function handleDigitPaste(event: ClipboardEvent) {
+  const pasted = event.clipboardData?.getData('text') || '';
+  const digits = pasted.replace(/\D/g, '').slice(0, 6);
+  if (!digits) return;
+  event.preventDefault();
+  for (let i = 0; i < 6; i++) {
+    otpDigits.value[i] = digits[i] || '';
+  }
+  const focusIdx = Math.min(digits.length, 5);
+  otpRefs.value[focusIdx]?.focus();
+}
 
 async function handleSendOTP() {
   errorMsg.value = '';
@@ -32,7 +82,10 @@ async function handleSendOTP() {
     const res = await authStore.requestOTP(emailInput.value);
     if (res.success) {
       successMsg.value = res.message;
+      otpDigits.value = ['', '', '', '', '', ''];
       step.value = 'otp';
+      await nextTick();
+      otpRefs.value[0]?.focus();
     } else {
       errorMsg.value = res.message;
     }
@@ -43,8 +96,8 @@ async function handleSendOTP() {
 
 async function handleVerifyOTP() {
   errorMsg.value = '';
-  if (!otpInput.value.trim()) {
-    errorMsg.value = 'Please enter the 6-digit verification code.';
+  if (otpInput.value.length !== 6) {
+    errorMsg.value = 'Please enter all 6 digits of your verification code.';
     return;
   }
 
@@ -55,7 +108,7 @@ async function handleVerifyOTP() {
       step.value = 'success';
       setTimeout(() => {
         router.push(redirectPath);
-      }, 1400);
+      }, 1200);
     } else {
       errorMsg.value = res.message || 'Verification failed.';
     }
@@ -64,138 +117,198 @@ async function handleVerifyOTP() {
   }
 }
 
-const showLogoutModal = ref(false);
-
 function confirmLogout() {
   authStore.logout();
   showLogoutModal.value = false;
   step.value = 'email';
   emailInput.value = '';
-  otpInput.value = '';
+  otpDigits.value = ['', '', '', '', '', ''];
 }
 </script>
 
 <template>
-  <main class="max-w-container-max mx-auto px-gutter py-stack-lg flex items-center justify-center min-h-[75vh]">
-    <div class="bg-white rounded-3xl p-8 md:p-12 custom-shadow shadow-2xl-ambient max-w-md w-full text-center">
-      <div class="inline-block p-4 bg-primary-container/10 rounded-full text-primary mb-4">
-        <span class="material-symbols-outlined text-4xl">verified_user</span>
+  <main class="max-w-container-max mx-auto px-4 md:px-gutter py-10 flex items-center justify-center min-h-[74vh]">
+    <div class="neu-surface-lg p-7 sm:p-10 max-w-md w-full text-center space-y-6">
+      <div class="neu-tile w-14 h-14 mx-auto flex items-center justify-center text-primary">
+        <svg viewBox="0 0 20 20" fill="none" class="w-6 h-6" aria-hidden="true">
+          <path
+            d="M10 2.5L15.5 4.8V9.2C15.5 13 13.1 16 10 17C6.9 16 4.5 13 4.5 9.2V4.8L10 2.5Z"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M7.5 10L9.2 11.7L12.7 8.2"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </div>
 
-      <h1 class="font-headline-lg text-headline-lg text-primary mb-2">Student Verification</h1>
-      <p class="font-body-md text-body-md text-on-surface-variant mb-6">
-        Verification protects reviews from spam. Your email address is SHA-256 hashed and <strong>never stored</strong> with your review text.
-      </p>
-
-      <div v-if="errorMsg" class="p-4 mb-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-bold text-left">
-        ⚠️ {{ errorMsg }}
+      <div class="space-y-2">
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-outline">
+          Zero-Knowledge Auth
+        </p>
+        <h1 class="text-2xl font-extrabold text-primary">
+          {{
+            step === 'email'
+              ? 'Student Verification'
+              : step === 'otp'
+                ? 'Enter 6-Digit Code'
+                : 'Verified Successfully'
+          }}
+        </h1>
+        <p class="text-xs text-on-surface-variant leading-relaxed">
+          Verification protects reviews from spam. Your email address is SHA-256 hashed and never stored with your review text.
+        </p>
       </div>
 
-      <div v-if="successMsg && step === 'otp'" class="p-4 mb-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl text-sm font-bold text-left">
-        📩 {{ successMsg }}
+      <div v-if="errorMsg" class="neu-inset rounded-xl p-3 text-xs font-semibold text-error text-left">
+        {{ errorMsg }}
+      </div>
+
+      <div v-if="successMsg && step === 'otp'" class="neu-inset rounded-xl p-3 text-xs font-semibold text-success text-left">
+        {{ successMsg }}
       </div>
 
       <!-- Step 1: Email -->
       <form v-if="step === 'email'" @submit.prevent="handleSendOTP" class="space-y-4 text-left">
-        <div>
-          <label class="block font-label-sm text-xs uppercase text-on-surface-variant font-bold mb-2">
+        <div class="space-y-1.5">
+          <label for="student-email" class="block text-[11px] font-bold uppercase tracking-wider text-outline">
             Student Email Address
           </label>
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">mail</span>
+          <div class="neu-inset rounded-full flex items-center px-4 py-2.5 gap-2.5">
+            <svg viewBox="0 0 20 20" fill="none" class="w-4 h-4 text-outline shrink-0">
+              <rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5" />
+              <path d="M4 6.5L10 11L16 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
             <input
+              id="student-email"
               v-model="emailInput"
               type="email"
               placeholder="bsse-f22-045@superior.edu.pk"
-              class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface font-body-md focus:ring-2 focus:ring-primary outline-none"
+              class="w-full bg-transparent border-none focus:ring-0 outline-none text-sm text-on-surface placeholder-outline p-0"
               required
               :disabled="isLoading"
             />
           </div>
-          <span class="text-xs text-outline mt-1 block">Must end with <strong>@superior.edu.pk</strong></span>
+          <span class="text-[11px] text-outline block pl-1">
+            Must end with <strong class="text-on-surface-variant">@superior.edu.pk</strong>
+          </span>
         </div>
 
         <button
           type="submit"
-          class="w-full bg-primary text-white py-3.5 rounded-full font-label-sm text-sm font-bold hover:bg-[#6B2FA0] transition-colors shadow-lg disabled:opacity-50"
+          class="neu-btn-primary w-full py-3 text-xs font-semibold cursor-pointer disabled:opacity-50"
           :disabled="isLoading"
         >
-          <span v-if="!isLoading">Send Verification Code →</span>
-          <span v-else>Sending...</span>
+          {{ isLoading ? 'Sending...' : 'Send Verification Code' }}
         </button>
       </form>
 
-      <!-- Step 2: OTP -->
-      <form v-else-if="step === 'otp'" @submit.prevent="handleVerifyOTP" class="space-y-4 text-left">
-        <div>
-          <label class="block font-label-sm text-xs uppercase text-on-surface-variant font-bold mb-2">
+      <!-- Step 2: 6 Individual OTP Boxes -->
+      <form v-else-if="step === 'otp'" @submit.prevent="handleVerifyOTP" class="space-y-5 text-left">
+        <div class="space-y-2">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-outline">
             Enter 6-Digit OTP Code
           </label>
-          <input
-            v-model="otpInput"
-            type="text"
-            placeholder="6-digit code"
-            maxlength="6"
-            class="w-full text-center font-stat-display text-2xl tracking-[0.3em] bg-surface-container-low border-2 border-outline-variant/30 rounded-xl p-3 text-on-surface focus:ring-2 focus:ring-primary outline-none"
-            required
-            :disabled="isLoading"
-          />
-          <span class="text-xs text-outline mt-1 block text-center">Check your student email inbox or terminal log for code</span>
+          <div class="grid grid-cols-6 gap-2" @paste="handleDigitPaste">
+            <input
+              v-for="(_, index) in otpDigits"
+              :key="index"
+              :ref="(el) => setOtpRef(el, index)"
+              :value="otpDigits[index]"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              autocomplete="one-time-code"
+              :aria-label="`OTP digit ${index + 1}`"
+              :disabled="isLoading"
+              @input="handleDigitInput(index, $event)"
+              @keydown="handleDigitKeydown(index, $event)"
+              class="neu-inset rounded-xl h-12 text-center font-mono text-lg font-bold tabular-nums text-primary focus:ring-0 focus:outline-none"
+            />
+          </div>
+          <span class="text-[11px] text-outline block text-center">
+            Check your student inbox. 5 failed attempts trigger a 15-minute lockout.
+          </span>
         </div>
-
-        <div class="flex gap-3">
-          <button type="button" @click="step = 'email'" class="px-4 py-3 rounded-full font-label-sm text-xs border border-outline-variant/30 text-on-surface-variant font-bold" :disabled="isLoading">
-            ← Change
-          </button>
-          <button
-            type="submit"
-            class="flex-1 bg-primary text-white py-3 rounded-full font-label-sm text-sm font-bold hover:bg-[#6B2FA0] transition-colors shadow-lg disabled:opacity-50"
-            :disabled="isLoading"
-          >
-            <span v-if="!isLoading">Verify & Continue</span>
-            <span v-else>Verifying...</span>
-          </button>
-        </div>
-      </form>
-
-      <!-- Step 3: Success -->
-      <div v-else-if="step === 'success'" class="space-y-4">
-        <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold">
-          ✓
-        </div>
-        <h3 class="text-xl font-bold text-on-surface">Verified Successfully!</h3>
-        <p class="text-sm text-on-surface-variant">Verified as <strong>{{ authStore.email }}</strong></p>
-
-        <button @click="showLogoutModal = true" class="text-xs text-red-600 underline font-bold pt-2 hover:text-red-700">
-          Unlink Email / Logout
-        </button>
-      </div>
-    </div>
-
-    <!-- Confirmation Modal -->
-    <div v-if="showLogoutModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-200">
-        <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-3xl mb-4">
-          <span class="material-symbols-outlined text-[32px]">logout</span>
-        </div>
-
-        <h3 class="font-headline-lg text-xl font-bold text-on-surface mb-2">Unlink & Log Out?</h3>
-        <p class="text-xs text-on-surface-variant leading-relaxed mb-6">
-          Are you sure you want to unlink your student email? You will need to verify with a new OTP next time you submit a review.
-        </p>
 
         <div class="flex gap-3">
           <button
             type="button"
+            @click="step = 'email'; errorMsg = ''"
+            class="neu-pill-btn px-4 py-2.5 text-xs font-semibold cursor-pointer"
+            :disabled="isLoading"
+          >
+            Change
+          </button>
+          <button
+            type="submit"
+            class="flex-1 neu-btn-primary py-2.5 text-xs font-semibold cursor-pointer disabled:opacity-50"
+            :disabled="isLoading || otpInput.length !== 6"
+          >
+            {{ isLoading ? 'Verifying...' : 'Verify & Continue' }}
+          </button>
+        </div>
+      </form>
+
+      <!-- Step 3: Verified -->
+      <div v-else class="space-y-4">
+        <div class="neu-inset-tray p-4 space-y-1">
+          <p class="text-xs font-semibold text-success uppercase font-mono">Active Campus Session</p>
+          <p class="text-sm font-semibold text-on-surface">
+            {{ authStore.email || 'Superior University Student' }}
+          </p>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-3 pt-1">
+          <router-link to="/review/new" class="neu-btn-primary px-5 py-2.5 text-xs font-semibold">
+            Write Review
+          </router-link>
+          <button
+            type="button"
+            @click="showLogoutModal = true"
+            class="neu-pill-btn px-5 py-2.5 text-xs font-semibold text-error cursor-pointer"
+          >
+            Unlink / Logout
+          </button>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-center gap-4 text-[11px] text-outline">
+        <router-link to="/privacy" class="hover:text-primary transition-colors">Privacy Policy</router-link>
+        <span>·</span>
+        <router-link to="/terms" class="hover:text-primary transition-colors">Terms of Service</router-link>
+      </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div
+      v-if="showLogoutModal"
+      class="fixed inset-0 z-50 bg-on-surface/35 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="neu-card p-7 max-w-sm w-full text-center space-y-4">
+        <h3 class="text-lg font-bold text-on-surface">Unlink &amp; Log Out?</h3>
+        <p class="text-xs text-on-surface-variant leading-relaxed">
+          Are you sure you want to unlink your student email? You will need to verify with a new OTP next time you submit a review.
+        </p>
+        <div class="flex gap-3 pt-1">
+          <button
+            type="button"
             @click="showLogoutModal = false"
-            class="flex-1 px-4 py-3 rounded-full text-xs font-bold border border-outline-variant/40 text-on-surface hover:bg-surface-variant transition-colors"
+            class="flex-1 neu-pill-btn py-2.5 text-xs font-semibold cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="button"
             @click="confirmLogout"
-            class="flex-1 bg-red-600 text-white py-3 rounded-full text-xs font-bold hover:bg-red-700 transition-colors shadow-md"
+            class="flex-1 bg-error text-on-primary rounded-full py-2.5 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
           >
             Yes, Unlink
           </button>
@@ -204,5 +317,3 @@ function confirmLogout() {
     </div>
   </main>
 </template>
-
-<style scoped></style>

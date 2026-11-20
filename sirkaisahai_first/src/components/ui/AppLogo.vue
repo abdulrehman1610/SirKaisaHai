@@ -1,79 +1,67 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-
 interface Props {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg';
   showText?: boolean;
-  textColor?: string;
-  variant?: 'default' | 'light';
+  boxed?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   size: 'md',
   showText: true,
-  textColor: 'text-primary',
-  variant: 'default'
+  boxed: true
 });
 
-const isLight = computed(() => props.variant === 'light' || props.textColor.includes('text-white'));
-
-const sizeClasses = {
-  sm: 'w-7 h-7',
-  md: 'w-8 h-8',
-  lg: 'w-10 h-10',
-  xl: 'w-14 h-14'
+const boxClasses = {
+  sm: 'w-8 h-8 rounded-[10px]',
+  md: 'w-9 h-9 rounded-[11px]',
+  lg: 'w-10 h-10 rounded-[12px]'
 };
 
-const textSizeClasses = {
-  sm: 'text-base',
-  md: 'text-xl',
-  lg: 'text-2xl',
-  xl: 'text-4xl'
+const iconClasses = {
+  sm: 'w-4 h-4',
+  md: 'w-[18px] h-[18px]',
+  lg: 'w-5 h-5'
+};
+
+const textClasses = {
+  sm: 'text-[15px]',
+  md: 'text-[17px]',
+  lg: 'text-[19px]'
 };
 </script>
 
 <template>
-  <div class="inline-flex items-center gap-2.5 select-none group">
-    <!-- Clean Graduation Cap Icon -->
-    <div :class="[sizeClasses[props.size], 'shrink-0 relative transition-transform duration-300 group-hover:scale-105']">
-      <!-- Light / Dark Background Adaptable SVG -->
-      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-sm">
-        <template v-if="isLight">
-          <!-- Cap Board (Crisp White with Lavender Rim) -->
-          <polygon points="32,8 60,22 32,36 4,22" fill="#FFFFFF"/>
-          <!-- Cap Base (Bright Purple / White glow) -->
-          <path d="M16,28 L16,38 C16,46 48,46 48,38 L48,28" fill="none" stroke="#deb7ff" stroke-width="4" stroke-linecap="round"/>
-          <!-- Tassel String (Vivid Cyan/Gold) -->
-          <line x1="52" y1="24" x2="56" y2="40" stroke="#00E5FF" stroke-width="3" stroke-linecap="round"/>
-          <!-- Tassel Ball -->
-          <circle cx="56" cy="42" r="3" fill="#00E5FF"/>
-          <!-- Star in contrast Deep Plum -->
-          <path d="M32,24 L33.8,29 L39,29.5 L35,33 L36.2,38 L32,35.5 L27.8,38 L29,33 L25,29.5 L30.2,29 Z" fill="#501243"/>
-        </template>
-        <template v-else>
-          <!-- Cap Board (Deep Plum) -->
-          <polygon points="32,8 60,22 32,36 4,22" fill="#501243"/>
-          <!-- Cap Base (Purple Bowl) -->
-          <path d="M16,28 L16,38 C16,46 48,46 48,38 L48,28" fill="none" stroke="#6B2FA0" stroke-width="3.5" stroke-linecap="round"/>
-          <!-- Tassel String -->
-          <line x1="52" y1="24" x2="56" y2="40" stroke="#7C41B1" stroke-width="2.5" stroke-linecap="round"/>
-          <!-- Tassel Ball -->
-          <circle cx="56" cy="42" r="2.5" fill="#7C41B1"/>
-          <!-- Star (White Rating Star) -->
-          <path d="M32,24 L33.8,29 L39,29.5 L35,33 L36.2,38 L32,35.5 L27.8,38 L29,33 L25,29.5 L30.2,29 Z" fill="white" opacity="0.95"/>
-        </template>
+  <div class="inline-flex items-center gap-2.5 select-none">
+    <div
+      :class="[
+        props.boxed ? `${boxClasses[props.size]} neu-tile flex items-center justify-center` : 'inline-flex items-center',
+        'shrink-0 text-primary'
+      ]"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        :class="iconClasses[props.size]"
+        aria-hidden="true"
+      >
+        <path
+          d="M12 4L22 9L12 14L2 9L12 4Z"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M6 11.2V16.2C6 18 8.7 19.5 12 19.5C15.3 19.5 18 18 18 16.2V11.2"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        />
+        <path d="M21 9.5V15" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
       </svg>
     </div>
 
-    <!-- Brand Typography -->
-    <span
-      v-if="props.showText"
-      :class="[
-        textSizeClasses[props.size],
-        props.textColor,
-        'font-display-lg font-black tracking-tight'
-      ]"
-    >
+    <span v-if="props.showText" :class="[textClasses[props.size], 'font-bold tracking-tight text-primary']">
       SirKaisaHai
     </span>
   </div>

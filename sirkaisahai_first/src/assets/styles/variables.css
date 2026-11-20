@@ -1,76 +1,51 @@
 :root {
-  /* Brand Color Palette - Deep Plum & Secondary Purple */
-  --primary: #501243;
-  --primary-container: #6B2A5B;
-  --primary-hover: #4A1F42;
-  --on-primary: #FFFFFF;
+  /* Soft Monochrome Neumorphic Palette */
+  --neu-bg: #eaebf2;
+  --neu-bg-recessed: #e5e6ee;
+  --neu-shadow-dark: rgba(176, 179, 198, 0.52);
+  --neu-shadow-dark-soft: rgba(176, 179, 198, 0.42);
+  --neu-shadow-light: rgba(255, 255, 255, 0.92);
+  --neu-highlight-border: rgba(255, 255, 255, 0.48);
 
-  --secondary: #7C41B1;
-  --secondary-accent: #6B2FA0;
-  --secondary-container: #EFE5FA; /* Pale Purple for Stat Boxes */
-  --secondary-fixed: #F1DBFF;
+  /* Brand Plum Accent */
+  --primary: #5e234e;
+  --primary-hover: #4b1a3e;
+  --primary-container: #6d2a5b;
+  --primary-soft: #e3dce6;
+  --on-primary: #fbf9fc;
 
-  /* Action & Semantic Colors */
-  --action-blue: #2D6FD1;
-  --action-blue-bg: #E8F0FC;
-  --success: #2E9E4F;
-  --success-bg: #E7F6EC;
-  --warning: #E08A1F;
-  --warning-bg: #FDF1E2;
-  --danger: #D63B3B;
-  --danger-bg: #FBEAEA;
+  /* Typography Ink */
+  --text-primary: #2b2a35;
+  --text-secondary: #6d6d7d;
+  --text-muted: #858596;
 
-  /* Surfaces & Neutrals */
-  --bg-page: #F8F9FB;
-  --bg-card: #FFFFFF;
-  --bg-surface-elevated: #F3F4F6;
-  --border: #E1E2E4;
-  --border-light: #EDEFE0;
-  --outline: #82737B;
-  --outline-variant: #D4C1CB;
+  /* Data-Only Semantic Colors */
+  --success: #1f6e43;
+  --success-bg: #dcece3;
+  --warning: #9a5b16;
+  --warning-bg: #f2e7d8;
+  --danger: #a83232;
+  --danger-bg: #f1dfdf;
 
-  --text-primary: #191C1E;
-  --text-secondary: #50434B;
-  --text-muted: #82737B;
-  --text-on-dark: #FFFFFF;
+  /* Borders */
+  --border: #d8dae5;
+  --border-light: rgba(255, 255, 255, 0.55);
 
-  /* Typography */
-  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* Fonts */
+  --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-urdu: 'Noto Sans Arabic', serif;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(107, 42, 91, 0.06);
-  --shadow-2xl-ambient: 0 20px 50px -12px rgba(107, 42, 91, 0.08);
-
-  /* Radius */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
-  --radius-2xl: 2rem;
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
   --radius-full: 9999px;
 
   /* Transitions */
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Utility Classes */
-.text-gradient {
-  background: linear-gradient(to right, #6b2a5b, #7c41b1);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.progress-gradient {
-  background: linear-gradient(90deg, #6B2FA0 0%, #2D6FD1 100%);
-}
-
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  --transition-fast: 0.18s ease;
+  --transition-normal: 0.25s ease;
 }

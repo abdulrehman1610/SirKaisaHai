@@ -3,100 +3,188 @@
 
 body {
   font-family: var(--font-body);
-  background-color: var(--bg-page);
+  background-color: var(--neu-bg);
   color: var(--text-primary);
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.25;
-}
-
-.container {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-}
-
-/* Card Surface with Ambient Plum Shadow */
-.stitch-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 1.75rem;
-  box-shadow: var(--shadow-2xl-ambient);
-  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
-}
-
-.stitch-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 24px 60px -10px rgba(107, 42, 91, 0.12);
-}
-
-/* Stat Box (Pale Purple Background + JetBrains Mono Big Number) */
-.stitch-stat-box {
-  background: var(--secondary-container);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 110px;
-  transition: transform var(--transition-fast);
-}
-
-.stitch-stat-box:hover {
-  transform: scale(1.02);
-}
-
-.stitch-stat-number {
-  font-family: var(--font-mono);
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--secondary-accent);
-  line-height: 1;
   letter-spacing: -0.02em;
 }
 
-.stitch-stat-label {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
-/* Keyframe Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+/* ============================================================================
+   SOFT NEUMORPHIC SURFACE PRIMITIVES
+   ============================================================================ */
+
+/* Large hero & outer footer shells */
+.neu-surface-lg {
+  background: var(--neu-bg);
+  border-radius: 24px;
+  border: 1px solid var(--neu-highlight-border);
+  box-shadow:
+    12px 12px 26px var(--neu-shadow-dark),
+    -12px -12px 26px var(--neu-shadow-light);
+}
+
+/* Standard cards, empty state cards, modals */
+.neu-card {
+  background: var(--neu-bg);
+  border-radius: 20px;
+  border: 1px solid var(--neu-highlight-border);
+  box-shadow:
+    9px 9px 20px var(--neu-shadow-dark),
+    -9px -9px 20px var(--neu-shadow-light);
+}
+
+/* Compact raised tiles (icon badges, small stat boxes) */
+.neu-tile {
+  background: var(--neu-bg);
+  border-radius: 12px;
+  border: 1px solid var(--neu-highlight-border);
+  box-shadow:
+    5px 5px 11px var(--neu-shadow-dark-soft),
+    -5px -5px 11px var(--neu-shadow-light);
+}
+
+/* Raised interactive pill button / chip */
+.neu-pill-btn {
+  background: var(--neu-bg);
+  color: var(--text-primary);
+  border-radius: 9999px;
+  border: 1px solid var(--neu-highlight-border);
+  box-shadow:
+    5px 5px 11px var(--neu-shadow-dark-soft),
+    -5px -5px 11px var(--neu-shadow-light);
+  transition: box-shadow 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+
+.neu-pill-btn:hover:not(:disabled) {
+  color: var(--primary);
+  box-shadow:
+    3px 3px 8px var(--neu-shadow-dark-soft),
+    -3px -3px 8px var(--neu-shadow-light);
+}
+
+.neu-pill-btn:active:not(:disabled),
+.neu-pill-btn.neu-active {
+  color: var(--primary);
+  box-shadow:
+    inset 3px 3px 7px var(--neu-shadow-dark),
+    inset -3px -3px 7px var(--neu-shadow-light);
+}
+
+/* Primary Solid Plum Pill CTA */
+.neu-btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    5px 5px 13px rgba(94, 35, 78, 0.34),
+    -4px -4px 10px var(--neu-shadow-light);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.neu-btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  box-shadow:
+    4px 4px 10px rgba(75, 26, 62, 0.42),
+    -3px -3px 8px var(--neu-shadow-light);
+}
+
+.neu-btn-primary:active:not(:disabled) {
+  box-shadow: inset 3px 3px 7px rgba(34, 9, 28, 0.45);
+}
+
+/* Recessed / Inset inputs, search pills, tracks */
+.neu-inset {
+  background: var(--neu-bg-recessed);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 4px 4px 9px var(--neu-shadow-dark),
+    inset -4px -4px 9px var(--neu-shadow-light);
+}
+
+.neu-inset-tray {
+  background: var(--neu-bg);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  box-shadow:
+    inset 5px 5px 12px var(--neu-shadow-dark-soft),
+    inset -5px -5px 12px var(--neu-shadow-light);
+}
+
+/* Soft circular counter badge */
+.neu-circle-badge {
+  background: var(--neu-bg);
+  border-radius: 9999px;
+  border: 1px solid var(--neu-highlight-border);
+  box-shadow:
+    3px 3px 7px var(--neu-shadow-dark-soft),
+    -3px -3px 7px var(--neu-shadow-light);
+}
+
+/* Soft Skeleton Loader */
+.neu-skeleton {
+  background: #dfe1eb;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.neu-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.5);
+  animation: neuPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes neuPulse {
+  0%,
+  100% {
+    opacity: 0.15;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  50% {
+    opacity: 0.75;
   }
 }
 
-.fade-in {
-  animation: fadeIn 0.35s ease-out forwards;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-/* Custom Scrollbar */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #F3F4F6;
+  background: var(--neu-bg);
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #D4C1CB;
-  border-radius: 4px;
+  background: #c8cad8;
+  border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #82737B;
+  background: #9c9fb3;
 }
