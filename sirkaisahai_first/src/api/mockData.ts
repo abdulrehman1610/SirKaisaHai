@@ -4,8 +4,7 @@ export const mockUniversity: University = {
   id: 'uni-superior',
   name: 'Superior University',
   shortName: 'Superior',
-  domain: 'superior.edu.pk',
-  logoUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=100&auto=format&fit=crop&q=80'
+  domain: 'superior.edu.pk'
 };
 
 export const mockDepartments: Department[] = [
@@ -15,7 +14,8 @@ export const mockDepartments: Department[] = [
   { id: 'dept-ds', universityId: 'uni-superior', name: 'Data Science', code: 'DS' },
   { id: 'dept-ai', universityId: 'uni-superior', name: 'Artificial Intelligence', code: 'AI' },
   { id: 'dept-it', universityId: 'uni-superior', name: 'Information Technology', code: 'IT' },
-  { id: 'dept-iot', universityId: 'uni-superior', name: 'Internet of Things', code: 'IoT' }
+  { id: 'dept-iot', universityId: 'uni-superior', name: 'Internet of Things', code: 'IoT' },
+  { id: 'dept-gd', universityId: 'uni-superior', name: 'Game Design', code: 'GD' }
 ];
 
 export const mockProfessors: Professor[] = [];
@@ -27,11 +27,12 @@ export const mockCourses: Course[] = [
     departmentName: 'Computer Science',
     code: 'CS-201',
     title: 'Data Structures & Algorithms',
-    description: 'Arrays, linked lists, trees, graphs, sorting, searching, time complexity analysis, and problem-solving techniques.',
+    description:
+      'Arrays, linked lists, trees, graphs, sorting, searching, time complexity analysis, and problem-solving techniques.',
     creditHours: 4,
     avgRating: 4.6,
     totalReviews: 0,
-    aiSummary: 'A crucial core CS course.'
+    aiSummary: 'Core foundational CS course focused on trees, graphs, sorting, and runtime analysis.'
   },
   {
     id: 'course-2',
@@ -39,11 +40,13 @@ export const mockCourses: Course[] = [
     departmentName: 'Computer Science',
     code: 'CS-305',
     title: 'Database Management Systems',
-    description: 'Relational model, SQL, normalization, indexing, transaction processing, and hands-on semester project.',
+    description:
+      'Relational model, SQL, normalization, indexing, transaction processing, and hands-on semester project.',
     creditHours: 4,
     avgRating: 4.5,
     totalReviews: 16,
-    aiSummary: 'Highly practical course. The term project accounts for a large portion of the grade. SQL queries form the core of exams.'
+    aiSummary:
+      'Practical course where the semester project carries major weight and SQL queries form the core of exams.'
   },
   {
     id: 'course-3',
@@ -51,11 +54,13 @@ export const mockCourses: Course[] = [
     departmentName: 'Software Engineering',
     code: 'SE-310',
     title: 'Web Application Development',
-    description: 'Frontend frameworks, REST APIs, asynchronous programming, database integration, and modern deployment pipelines.',
+    description:
+      'Frontend frameworks, REST APIs, asynchronous programming, database integration, and modern deployment pipelines.',
     creditHours: 3,
     avgRating: 4.8,
     totalReviews: 19,
-    aiSummary: 'Top choice elective for SE/CS students. Great hands-on skills learned. Evaluation relies heavily on final group project presentation.'
+    aiSummary:
+      'Hands-on elective for SE and CS students. Evaluation centers on the final full-stack project presentation.'
   },
   {
     id: 'course-4',
@@ -63,11 +68,13 @@ export const mockCourses: Course[] = [
     departmentName: 'Business Administration',
     code: 'MGT-101',
     title: 'Principles of Management',
-    description: 'Organizational behavior, leadership styles, strategic planning, decision making, and corporate ethics.',
+    description:
+      'Organizational behavior, leadership styles, strategic planning, decision making, and corporate ethics.',
     creditHours: 3,
     avgRating: 3.7,
     totalReviews: 12,
-    aiSummary: 'Theory-based course requiring good memorization and case analysis. Quiz performance heavily dictates final letter grades.'
+    aiSummary:
+      'Theory-focused course built around case studies and regular quizzes that heavily influence final grades.'
   },
   {
     id: 'course-5',
@@ -75,11 +82,13 @@ export const mockCourses: Course[] = [
     departmentName: 'Mathematics & Science',
     code: 'MT-102',
     title: 'Calculus & Analytical Geometry',
-    description: 'Limits, derivatives, integration techniques, multivariable calculus basics, and engineering applications.',
+    description:
+      'Limits, derivatives, integration techniques, multivariable calculus basics, and engineering applications.',
     creditHours: 3,
     avgRating: 4.1,
     totalReviews: 15,
-    aiSummary: 'Standard freshman math course. Solved tutorial sheets are the best study material for midterms and finals.'
+    aiSummary:
+      'Standard freshman mathematics course. Tutorial sheets closely reflect midterm and final exam structure.'
   }
 ];
 

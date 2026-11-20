@@ -5,11 +5,11 @@ const props = withDefaults(
   defineProps<{
     score: number;
     size?: 'sm' | 'md' | 'lg';
-    showStar?: boolean;
+    showScale?: boolean;
   }>(),
   {
     size: 'md',
-    showStar: true
+    showScale: false
   }
 );
 
@@ -23,56 +23,56 @@ const formattedScore = computed(() => props.score.toFixed(1));
 </script>
 
 <template>
-  <div class="rating-badge" :class="[badgeClass, size]">
+  <div class="rating-badge tabular-nums" :class="[badgeClass, size]">
     <span class="score-num">{{ formattedScore }}</span>
-    <span v-if="showStar" class="star">★</span>
+    <span v-if="showScale" class="scale">/5</span>
   </div>
 </template>
 
 <style scoped>
 .rating-badge {
   display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-weight: 800;
-  border-radius: var(--radius-full);
+  align-items: baseline;
+  gap: 0.14rem;
   font-family: var(--font-mono);
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 10px;
 }
 
 .rating-high {
-  background-color: var(--success-bg);
+  background: var(--success-bg);
   color: var(--success);
-  border: 1px solid rgba(46, 158, 79, 0.2);
 }
 
 .rating-med {
-  background-color: var(--warning-bg);
+  background: var(--warning-bg);
   color: var(--warning);
-  border: 1px solid rgba(224, 138, 31, 0.2);
 }
 
 .rating-low {
-  background-color: var(--danger-bg);
+  background: var(--danger-bg);
   color: var(--danger);
-  border: 1px solid rgba(214, 59, 59, 0.2);
 }
 
-/* Sizes */
 .sm {
-  padding: 0.15rem 0.5rem;
+  padding: 0.28rem 0.5rem;
   font-size: 0.75rem;
 }
+
 .md {
-  padding: 0.25rem 0.75rem;
+  padding: 0.4rem 0.68rem;
   font-size: 0.875rem;
 }
+
 .lg {
-  padding: 0.4rem 1rem;
-  font-size: 1.15rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 1.05rem;
 }
 
-.star {
-  font-size: 0.85em;
-  font-family: sans-serif;
+.scale {
+  font-size: 0.72em;
+  opacity: 0.7;
+  font-weight: 500;
 }
 </style>

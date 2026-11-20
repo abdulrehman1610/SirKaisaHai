@@ -4,18 +4,20 @@ import { useRoute, useRouter } from 'vue-router';
 import type { Department, SearchResultItem } from '../types';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
+import DepartmentFilter from '../components/ui/DepartmentFilter.vue';
+import RatingBadge from '../components/ui/RatingBadge.vue';
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 
 const queryText = ref((route.query.q as string) || '');
-const selectedDept = ref<string>('all');
+const selectedDept = ref<string>((route.query.dept as string) || 'all');
+const sortBy = ref<'rating' | 'reviews' | 'name'>('rating');
 const departments = ref<Department[]>([]);
 const results = ref<SearchResultItem[]>([]);
 const isLoading = ref(true);
 
-// Add Teacher Modal State
 const showAddModal = ref(false);
 const newProfName = ref('');
 const newProfDeptId = ref('dept-cs');
@@ -27,20 +29,29 @@ const addSuccessMsg = ref('');
 const filterTab = computed(() => (route.query.tab as string) || 'professors');
 
 const filteredResults = computed(() => {
+  let list = results.value;
   if (filterTab.value === 'professors') {
-    return results.value.filter((r) => r.type === 'professor');
+    list = list.filter((r) => r.type === 'professor');
+  } else if (filterTab.value === 'courses') {
+    list = list.filter((r) => r.type === 'course');
   }
-  if (filterTab.value === 'courses') {
-    return results.value.filter((r) => r.type === 'course');
-  }
-  return results.value;
+
+  return [...list].sort((a, b) => {
+    if (sortBy.value === 'reviews') return b.reviewCount - a.reviewCount;
+    if (sortBy.value === 'name') return a.title.localeCompare(b.title);
+    return b.rating - a.rating;
+  });
 });
 
 async function loadData() {
   isLoading.value = true;
   try {
-    departments.value = await api.getDepartments();
-    results.value = await api.search(queryText.value, selectedDept.value);
+    const [depts, items] = await Promise.all([
+      api.getDepartments(),
+      api.search(queryText.value, selectedDept.value)
+    ]);
+    departments.value = depts;
+    results.value = items;
   } finally {
     isLoading.value = false;
   }
@@ -48,13 +59,31 @@ async function loadData() {
 
 onMounted(loadData);
 
-watch([() => route.query.q, selectedDept], ([newQ]) => {
+watch([() => route.query.q, () => route.query.dept], ([newQ, newDept]) => {
   queryText.value = (newQ as string) || '';
+  if (typeof newDept === 'string' && newDept) {
+    selectedDept.value = newDept;
+  }
+  loadData();
+});
+
+watch(selectedDept, (dept) => {
+  router.replace({ query: { ...route.query, dept: dept === 'all' ? undefined : dept } });
   loadData();
 });
 
 function handleSearchInput() {
-  router.replace({ query: { ...route.query, q: queryText.value } });
+  router.replace({ query: { ...route.query, q: queryText.value || undefined } });
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 }
 
 async function handleCreateProfessor() {
@@ -62,7 +91,7 @@ async function handleCreateProfessor() {
   addSuccessMsg.value = '';
 
   if (!newProfName.value.trim()) {
-    addErrorMsg.value = 'Please enter professor name.';
+    addErrorMsg.value = 'Please enter the professor name.';
     return;
   }
 
@@ -76,15 +105,15 @@ async function handleCreateProfessor() {
       userEmail: authStore.email || undefined
     });
 
-    addSuccessMsg.value = `Successfully added ${newProf.name}!`;
+    addSuccessMsg.value = `Added ${newProf.name} to the catalogue.`;
     newProfName.value = '';
     setTimeout(() => {
       showAddModal.value = false;
       addSuccessMsg.value = '';
       loadData();
-    }, 1200);
-  } catch (err: any) {
-    addErrorMsg.value = err.message || 'Failed to add teacher.';
+    }, 1000);
+  } catch (err: unknown) {
+    addErrorMsg.value = err instanceof Error ? err.message : 'Failed to add teacher.';
   } finally {
     isSubmittingProf.value = false;
   }
@@ -92,175 +121,240 @@ async function handleCreateProfessor() {
 </script>
 
 <template>
-  <main class="flex-grow w-full max-w-container-max mx-auto px-4 md:px-gutter py-6 md:py-stack-lg flex flex-col gap-4 md:gap-stack-lg">
-    <!-- Hero Search Section -->
-    <section class="text-center w-full max-w-3xl mx-auto space-y-3 md:space-y-stack-md pt-2 md:pt-stack-md">
-      <div class="flex justify-center items-center gap-2 mb-1 md:mb-2">
-        <h1 class="font-display-lg text-2xl md:text-[48px] text-primary">
-          Search Teacher
-        </h1>
-      </div>
-      <p class="font-body-lg text-sm md:text-body-lg text-on-surface-variant px-2">
-        Search professors by name, department, or course code to view ratings & student feedback.
-      </p>
+  <main class="w-full">
+    <!-- Top Blush Header Band -->
+    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
+      <div class="max-w-container-max mx-auto space-y-6">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div class="space-y-1.5">
+            <p class="ed-eyebrow">Superior University · Faculty Catalogue</p>
+            <h1 class="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold text-ink-dark">
+              Find your <span class="text-primary">professor.</span>
+            </h1>
+          </div>
 
-      <div class="relative w-full shadow-xl rounded-full bg-white flex items-center p-1.5 md:p-2 border border-outline-variant/30 custom-shadow focus-within:ring-2 focus-within:ring-[#2D6FD1] transition-all">
-        <span class="material-symbols-outlined text-outline ml-3 md:ml-4 text-[22px] md:text-[28px]">search</span>
-        <input
-          v-model="queryText"
-          @input="handleSearchInput"
-          class="w-full bg-transparent border-none text-base md:text-headline-md font-headline-md text-on-surface focus:ring-0 px-3 md:px-4 py-2.5 md:py-3 placeholder:text-outline-variant outline-none min-w-0"
-          placeholder="Type professor name (e.g. Dr. Tariq)..."
-          type="text"
-        />
-        <button @click="loadData" class="bg-primary text-white px-5 md:px-8 py-2.5 md:py-3 rounded-full text-sm md:text-body-lg hover:bg-[#6B2FA0] transition-colors shadow-md flex items-center gap-1 md:gap-2 whitespace-nowrap">
-          Search <span class="material-symbols-outlined text-[18px] md:text-[20px]">arrow_forward</span>
-        </button>
+          <button
+            type="button"
+            @click="authStore.isVerified ? (showAddModal = true) : router.push({ path: '/auth', query: { redirect: '/search' } })"
+            class="ed-btn-primary px-6 py-2.5 text-xs font-semibold inline-flex items-center gap-3 self-start md:self-auto cursor-pointer"
+          >
+            <span>+ Add a teacher</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+
+        <div class="ed-search-bar p-2 pl-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div class="flex items-center gap-2.5 flex-1 min-w-0">
+            <svg viewBox="0 0 20 20" fill="none" class="w-4 h-4 text-ink-subtle shrink-0" aria-hidden="true">
+              <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6" />
+              <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+            <input
+              v-model="queryText"
+              @input="handleSearchInput"
+              class="w-full bg-transparent border-none focus:ring-0 outline-none text-sm sm:text-base text-ink-dark placeholder-ink-subtle py-2 p-0"
+              placeholder="Search by name or title (e.g. Dr. Tariq)..."
+              type="text"
+            />
+          </div>
+          <button
+            type="button"
+            @click="loadData"
+            class="ed-btn-primary px-6 py-2.5 text-xs font-semibold shrink-0 cursor-pointer inline-flex items-center justify-center gap-2"
+          >
+            <span>Search</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
       </div>
     </section>
 
-    <!-- Department Filters & Add Teacher Button -->
-    <section class="flex flex-col sm:flex-row flex-wrap justify-between items-start sm:items-center gap-3 md:gap-4 pb-4 border-b border-surface-variant">
-      <div class="flex overflow-x-auto gap-2 md:gap-4 no-scrollbar items-center w-full sm:w-auto pb-1">
-        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Department:</span>
-        <button
-          class="px-4 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-body-md whitespace-nowrap transition-colors border"
-          :class="selectedDept === 'all' ? 'bg-primary-container text-white shadow-md' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-variant'"
-          @click="selectedDept = 'all'"
-        >
-          All Departments
-        </button>
+    <!-- Main Directory Band -->
+    <section class="bg-band-light px-4 md:px-gutter py-10 min-h-[55vh]">
+      <div class="max-w-container-max mx-auto space-y-7">
+        <!-- Filters + Sort -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-border-soft">
+          <DepartmentFilter v-model="selectedDept" :departments="departments" class="flex-1 min-w-0" />
 
-        <button
-          v-for="dept in departments"
-          :key="dept.id"
-          class="px-4 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-body-md whitespace-nowrap transition-colors border"
-          :class="selectedDept === dept.id ? 'bg-primary-container text-white shadow-md' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-variant'"
-          @click="selectedDept = dept.id"
-        >
-          {{ dept.name }}
-        </button>
+          <div class="flex items-center gap-2.5 shrink-0 self-end lg:self-auto">
+            <label for="dir-sort" class="ed-eyebrow">Sort</label>
+            <select
+              id="dir-sort"
+              v-model="sortBy"
+              class="ed-input rounded-full px-4 py-1.5 text-xs font-semibold text-ink-dark cursor-pointer"
+            >
+              <option value="rating">Highest rated</option>
+              <option value="reviews">Most reviewed</option>
+              <option value="name">Name (A-Z)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Count Row -->
+        <div class="flex items-baseline justify-between gap-2">
+          <h2 class="text-lg font-bold text-ink-dark">
+            Showing faculty <span v-if="queryText" class="font-normal text-ink-muted">matching "{{ queryText }}"</span>
+          </h2>
+          <span class="ed-eyebrow tabular-nums">{{ filteredResults.length }} found</span>
+        </div>
+
+        <!-- Skeletons -->
+        <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div v-for="n in 6" :key="n" class="ed-card p-6 space-y-4">
+            <div class="flex justify-between items-start gap-3">
+              <div class="flex items-center gap-3 flex-1">
+                <div class="ed-skeleton w-11 h-11 rounded-xl shrink-0"></div>
+                <div class="space-y-2 flex-1">
+                  <div class="ed-skeleton h-4 w-3/4"></div>
+                  <div class="ed-skeleton h-3 w-1/2"></div>
+                </div>
+              </div>
+              <div class="ed-skeleton w-12 h-7"></div>
+            </div>
+            <div class="ed-skeleton h-12 w-full"></div>
+            <div class="ed-skeleton h-9 w-full rounded-full"></div>
+          </div>
+        </div>
+
+        <!-- Results Grid -->
+        <div v-else-if="filteredResults.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <article v-for="item in filteredResults" :key="item.id" class="ed-card p-6 flex flex-col gap-5">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3 min-w-0">
+                <div class="w-11 h-11 rounded-xl bg-primary-soft text-primary flex items-center justify-center font-mono text-sm font-bold shrink-0">
+                  {{ getInitials(item.title) }}
+                </div>
+                <div class="min-w-0">
+                  <h3 class="text-base font-bold text-ink-dark leading-snug">
+                    <router-link :to="item.url" class="hover:text-primary transition-colors">
+                      {{ item.title }}
+                    </router-link>
+                  </h3>
+                  <p class="text-xs text-ink-muted mt-0.5">{{ item.department }}</p>
+                  <span class="inline-block mt-2 bg-surface-recessed px-2.5 py-0.5 rounded-full text-[11px] text-ink-muted">
+                    {{ item.subtitle }}
+                  </span>
+                </div>
+              </div>
+
+              <RatingBadge :score="item.rating" size="md" show-scale />
+            </div>
+
+            <div class="bg-surface-recessed rounded-xl p-3.5 flex items-center justify-between gap-4 mt-auto">
+              <div class="flex-1">
+                <div class="flex justify-between font-mono text-[10px] uppercase text-ink-subtle mb-1.5">
+                  <span>Rating</span>
+                  <span class="text-ink-dark font-semibold tabular-nums">{{ item.rating.toFixed(1) }}/5</span>
+                </div>
+                <div class="h-1.5 w-full bg-border-soft rounded-full overflow-hidden">
+                  <div class="h-full bg-primary rounded-full" :style="{ width: `${(item.rating / 5) * 100}%` }"></div>
+                </div>
+              </div>
+
+              <div class="text-right pl-3 border-l border-border-soft">
+                <div class="font-mono text-[10px] uppercase text-ink-subtle">Reviews</div>
+                <div class="font-mono text-base font-bold text-primary tabular-nums">{{ item.reviewCount }}</div>
+              </div>
+            </div>
+
+            <router-link
+              :to="item.url"
+              class="ed-btn-soft w-full py-2.5 text-xs font-semibold text-center text-primary inline-flex items-center justify-center gap-2"
+            >
+              <span>View dossier</span>
+              <span aria-hidden="true">→</span>
+            </router-link>
+          </article>
+        </div>
+
+        <!-- Empty State -->
+        <div v-else class="ed-card p-10 text-center max-w-lg mx-auto space-y-4">
+          <span class="font-serif text-4xl text-primary block leading-none" aria-hidden="true">“</span>
+          <h3 class="text-xl font-extrabold text-ink-dark">No professors found</h3>
+          <p class="text-sm text-ink-muted">
+            Cannot find your teacher? Add them to the Superior University catalogue so students can start reviewing.
+          </p>
+          <div class="flex flex-wrap justify-center gap-3 pt-1">
+            <button
+              type="button"
+              @click="authStore.isVerified ? (showAddModal = true) : router.push({ path: '/auth', query: { redirect: '/search' } })"
+              class="ed-btn-primary px-6 py-2.5 text-xs font-semibold cursor-pointer inline-flex items-center gap-2"
+            >
+              <span>Add a teacher</span>
+              <span aria-hidden="true">→</span>
+            </button>
+            <button
+              v-if="queryText || selectedDept !== 'all'"
+              type="button"
+              @click="queryText = ''; selectedDept = 'all'; handleSearchInput()"
+              class="ed-btn-soft px-5 py-2.5 text-xs font-semibold cursor-pointer"
+            >
+              Reset filters
+            </button>
+          </div>
+        </div>
       </div>
-
-      <button
-        @click="authStore.isVerified ? (showAddModal = true) : router.push('/auth')"
-        class="bg-[#6B2A5B] text-white px-5 py-2 rounded-full font-label-sm text-xs font-bold hover:bg-[#6B2FA0] transition-colors flex items-center gap-1.5 shadow-md ml-auto"
-      >
-        <span class="material-symbols-outlined text-[18px]">person_add</span>
-        + Add New Teacher
-      </button>
     </section>
 
-    <!-- Results Header -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-2">
-      <h2 class="font-headline-lg text-lg md:text-headline-lg text-on-surface">
-        Showing Professors <span v-if="queryText">for "{{ queryText }}"</span>
-      </h2>
-      <span class="font-label-sm text-label-sm text-on-surface-variant">{{ filteredResults.length }} Professors Found</span>
-    </div>
-
-    <!-- Loading State -->
-    <div v-if="isLoading" class="text-center py-20">
-      <div class="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-      <p class="mt-4 text-on-surface-variant font-label-sm">Searching professors...</p>
-    </div>
-
-    <!-- Results Bento Grid -->
-    <div v-else-if="filteredResults.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-stack-md">
-      <div
-        v-for="item in filteredResults"
-        :key="item.id"
-        class="bg-white rounded-[20px] md:rounded-[24px] p-5 md:p-8 custom-shadow flex flex-col gap-4 md:gap-6 relative group hover:-translate-y-1 transition-transform duration-300 shadow-2xl-ambient"
-      >
-        <div class="absolute -top-3 md:-top-4 -left-3 md:-left-4 bg-[#2E9E4F] text-white px-3 md:px-4 py-1.5 md:py-2 rounded-xl font-stat-display text-[16px] md:text-[20px] shadow-lg flex items-center gap-1 z-10">
-          {{ item.rating.toFixed(1) }} <span class="material-symbols-outlined text-[16px]">star</span>
-        </div>
-
-        <div class="flex items-start gap-3 md:gap-4 mt-2">
-          <div class="w-12 h-12 md:w-16 md:h-16 rounded-full overflow-hidden bg-primary text-white flex-shrink-0 border-2 border-white shadow-md flex items-center justify-center font-display-lg text-base md:text-xl font-bold">
-            {{ item.title.split(' ').map(n => n[0]).slice(0, 2).join('') }}
-          </div>
-          <div class="flex-grow pt-1">
-            <h3 class="font-headline-md text-headline-md text-on-surface leading-tight">
-              <router-link :to="item.url" class="hover:underline">{{ item.title }}</router-link>
-            </h3>
-            <p class="font-body-md text-body-md text-on-surface-variant mt-1">{{ item.department }}</p>
-            <div class="flex gap-2 mt-3">
-              <span class="bg-surface-container-low px-3 py-1 rounded-md font-label-sm text-label-sm text-on-surface-variant">{{ item.subtitle }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-surface p-4 rounded-xl flex justify-between items-center mt-auto border border-outline-variant/20">
-          <div class="flex flex-col">
-            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Rating</span>
-            <div class="w-24 h-2 bg-[#F4F5F7] rounded-full mt-2 overflow-hidden">
-              <div class="h-full bg-gradient-to-r from-[#6B2FA0] to-[#2D6FD1] rounded-full" :style="{ width: `${(item.rating / 5) * 100}%` }"></div>
-            </div>
-          </div>
-          <div class="text-right flex flex-col items-end">
-            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Reviews</span>
-            <span class="font-stat-display text-[20px] text-primary mt-1">{{ item.reviewCount }}</span>
-          </div>
-        </div>
-
-        <router-link :to="item.url" class="w-full py-3 rounded-xl border-2 border-primary text-primary font-body-md text-body-md font-semibold text-center hover:bg-primary/5 transition-colors active:scale-[0.98]">
-          View {{ item.reviewCount }} Reviews
-        </router-link>
-      </div>
-    </div>
-
-    <div v-else class="text-center py-20 bg-white rounded-3xl shadow-2xl-ambient">
-      <span class="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-2">search_off</span>
-      <h3 class="text-xl font-bold text-on-surface">No professors found</h3>
-      <p class="text-on-surface-variant mb-4">Can't find your teacher? Add them to the catalog!</p>
-      <button @click="authStore.isVerified ? (showAddModal = true) : router.push('/auth')" class="bg-primary text-white px-6 py-2.5 rounded-full font-label-sm">
-        + Add New Teacher
-      </button>
-    </div>
-
-    <!-- Modal: Add New Teacher -->
-    <div v-if="showAddModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
-        <button @click="showAddModal = false" class="absolute top-4 right-4 text-outline hover:text-primary">
-          <span class="material-symbols-outlined">close</span>
+    <!-- Add New Teacher Modal -->
+    <div
+      v-if="showAddModal"
+      class="fixed inset-0 z-50 bg-ink-dark/40 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="ed-card p-7 max-w-md w-full relative space-y-5">
+        <button
+          type="button"
+          @click="showAddModal = false"
+          class="ed-btn-soft w-8 h-8 flex items-center justify-center absolute top-5 right-5 text-ink-subtle hover:text-primary cursor-pointer"
+          aria-label="Close modal"
+        >
+          <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5">
+            <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
         </button>
 
-        <h3 class="font-headline-lg text-xl font-bold text-primary mb-1">Add a New Teacher</h3>
-        <p class="text-xs text-on-surface-variant mb-6">Add a missing professor to Superior University catalog.</p>
-
-        <div v-if="addErrorMsg" class="p-3 mb-4 bg-red-50 text-red-700 rounded-xl text-xs font-bold">
-          ⚠️ {{ addErrorMsg }}
+        <div>
+          <p class="ed-eyebrow mb-1">Campus Catalogue</p>
+          <h3 class="text-xl font-extrabold text-ink-dark">Add a new teacher</h3>
+          <p class="text-xs text-ink-muted mt-1">
+            Duplicate names across departments are checked automatically.
+          </p>
         </div>
-        <div v-if="addSuccessMsg" class="p-3 mb-4 bg-green-50 text-green-700 rounded-xl text-xs font-bold">
-          ✓ {{ addSuccessMsg }}
+
+        <div v-if="addErrorMsg" class="p-3 bg-error-soft text-error rounded-xl text-xs font-semibold">
+          {{ addErrorMsg }}
+        </div>
+        <div v-if="addSuccessMsg" class="p-3 bg-success-soft text-success rounded-xl text-xs font-semibold">
+          {{ addSuccessMsg }}
         </div>
 
         <form @submit.prevent="handleCreateProfessor" class="space-y-4">
-          <div>
-            <label class="block text-xs font-bold uppercase text-on-surface-variant mb-1">Teacher Full Name</label>
+          <div class="space-y-1.5">
+            <label class="block ed-eyebrow">Teacher full name</label>
             <input
               v-model="newProfName"
               type="text"
               placeholder="e.g. Dr. Hammad Raza"
-              class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+              class="w-full ed-input px-3.5 py-2.5 text-sm"
               required
             />
           </div>
 
-          <div>
-            <label class="block text-xs font-bold uppercase text-on-surface-variant mb-1">Department</label>
-            <select v-model="newProfDeptId" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none">
+          <div class="space-y-1.5">
+            <label class="block ed-eyebrow">Department</label>
+            <select v-model="newProfDeptId" class="w-full ed-input px-3.5 py-2.5 text-sm">
               <option v-for="d in departments" :key="d.id" :value="d.id">
                 {{ d.name }} ({{ d.code }})
               </option>
             </select>
           </div>
 
-          <div>
-            <label class="block text-xs font-bold uppercase text-on-surface-variant mb-1">Title / Designation</label>
-            <select v-model="newProfTitle" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none">
-              <option value="Professor & HOD">Professor & HOD</option>
+          <div class="space-y-1.5">
+            <label class="block ed-eyebrow">Title / designation</label>
+            <select v-model="newProfTitle" class="w-full ed-input px-3.5 py-2.5 text-sm">
+              <option value="Professor & HOD">Professor &amp; HOD</option>
               <option value="Professor">Professor</option>
               <option value="Associate Professor">Associate Professor</option>
               <option value="Assistant Professor">Assistant Professor</option>
@@ -270,12 +364,19 @@ async function handleCreateProfessor() {
           </div>
 
           <div class="flex gap-3 pt-2">
-            <button type="button" @click="showAddModal = false" class="px-5 py-3 rounded-full text-xs font-bold border border-outline-variant/30 text-on-surface-variant">
+            <button
+              type="button"
+              @click="showAddModal = false"
+              class="ed-btn-soft px-5 py-2.5 text-xs font-semibold cursor-pointer"
+            >
               Cancel
             </button>
-            <button type="submit" class="flex-1 bg-primary text-white py-3 rounded-full text-xs font-bold hover:bg-[#6B2FA0]" :disabled="isSubmittingProf">
-              <span v-if="!isSubmittingProf">Add Teacher</span>
-              <span v-else>Saving...</span>
+            <button
+              type="submit"
+              class="flex-1 ed-btn-primary py-2.5 text-xs font-semibold cursor-pointer disabled:opacity-50"
+              :disabled="isSubmittingProf"
+            >
+              {{ isSubmittingProf ? 'Saving...' : 'Add teacher' }}
             </button>
           </div>
         </form>
@@ -283,5 +384,3 @@ async function handleCreateProfessor() {
     </div>
   </main>
 </template>
-
-<style scoped></style>

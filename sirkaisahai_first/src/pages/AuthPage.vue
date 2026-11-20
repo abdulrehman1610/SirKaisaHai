@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
@@ -9,12 +9,62 @@ const route = useRoute();
 
 const step = ref<'email' | 'otp' | 'success'>(authStore.isVerified ? 'success' : 'email');
 const emailInput = ref(authStore.email || '');
-const otpInput = ref('');
+const otpDigits = ref<string[]>(['', '', '', '', '', '']);
+const otpRefs = ref<(HTMLInputElement | null)[]>([]);
 const isLoading = ref(false);
 const errorMsg = ref('');
 const successMsg = ref('');
+const showLogoutModal = ref(false);
 
+const otpInput = computed(() => otpDigits.value.join(''));
 const redirectPath = (route.query.redirect as string) || '/';
+
+function setOtpRef(el: unknown, index: number) {
+  otpRefs.value[index] = el as HTMLInputElement | null;
+}
+
+function handleDigitInput(index: number, event: Event) {
+  const input = event.target as HTMLInputElement;
+  const cleaned = input.value.replace(/\D/g, '');
+  if (!cleaned) {
+    otpDigits.value[index] = '';
+    return;
+  }
+
+  if (cleaned.length > 1) {
+    const chars = cleaned.slice(0, 6).split('');
+    chars.forEach((ch, idx) => {
+      if (idx < 6) otpDigits.value[idx] = ch;
+    });
+    const focusIdx = Math.min(chars.length, 5);
+    otpRefs.value[focusIdx]?.focus();
+    return;
+  }
+
+  otpDigits.value[index] = cleaned;
+  if (index < 5) {
+    otpRefs.value[index + 1]?.focus();
+  }
+}
+
+function handleDigitKeydown(index: number, event: KeyboardEvent) {
+  if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
+    otpDigits.value[index - 1] = '';
+    otpRefs.value[index - 1]?.focus();
+  }
+}
+
+function handleDigitPaste(event: ClipboardEvent) {
+  const pasted = event.clipboardData?.getData('text') || '';
+  const digits = pasted.replace(/\D/g, '').slice(0, 6);
+  if (!digits) return;
+  event.preventDefault();
+  for (let i = 0; i < 6; i++) {
+    otpDigits.value[i] = digits[i] || '';
+  }
+  const focusIdx = Math.min(digits.length, 5);
+  otpRefs.value[focusIdx]?.focus();
+}
 
 async function handleSendOTP() {
   errorMsg.value = '';
@@ -32,7 +82,10 @@ async function handleSendOTP() {
     const res = await authStore.requestOTP(emailInput.value);
     if (res.success) {
       successMsg.value = res.message;
+      otpDigits.value = ['', '', '', '', '', ''];
       step.value = 'otp';
+      await nextTick();
+      otpRefs.value[0]?.focus();
     } else {
       errorMsg.value = res.message;
     }
@@ -43,8 +96,8 @@ async function handleSendOTP() {
 
 async function handleVerifyOTP() {
   errorMsg.value = '';
-  if (!otpInput.value.trim()) {
-    errorMsg.value = 'Please enter the 6-digit verification code.';
+  if (otpInput.value.length !== 6) {
+    errorMsg.value = 'Please enter all 6 digits of your verification code.';
     return;
   }
 
@@ -55,7 +108,7 @@ async function handleVerifyOTP() {
       step.value = 'success';
       setTimeout(() => {
         router.push(redirectPath);
-      }, 1400);
+      }, 1200);
     } else {
       errorMsg.value = res.message || 'Verification failed.';
     }
@@ -64,145 +117,216 @@ async function handleVerifyOTP() {
   }
 }
 
-const showLogoutModal = ref(false);
-
 function confirmLogout() {
   authStore.logout();
   showLogoutModal.value = false;
   step.value = 'email';
   emailInput.value = '';
-  otpInput.value = '';
+  otpDigits.value = ['', '', '', '', '', ''];
 }
 </script>
 
 <template>
-  <main class="max-w-container-max mx-auto px-gutter py-stack-lg flex items-center justify-center min-h-[75vh]">
-    <div class="bg-white rounded-3xl p-8 md:p-12 custom-shadow shadow-2xl-ambient max-w-md w-full text-center">
-      <div class="inline-block p-4 bg-primary-container/10 rounded-full text-primary mb-4">
-        <span class="material-symbols-outlined text-4xl">verified_user</span>
-      </div>
+  <main class="w-full">
+    <section class="bg-band-hero px-4 md:px-gutter pt-8 pb-16 min-h-[76vh] flex items-center justify-center">
+      <div class="max-w-3xl w-full ed-card overflow-hidden grid grid-cols-1 md:grid-cols-12">
+        <!-- Left Deep Plum Trust Column -->
+        <aside class="md:col-span-5 bg-primary-dark text-on-primary p-7 md:p-8 flex flex-col justify-between gap-6">
+          <div class="space-y-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-on-primary/55">
+              Zero-Knowledge Auth
+            </p>
+            <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-on-primary leading-tight">
+              Your identity stays yours.
+            </h1>
+            <p class="text-xs text-on-primary/75 leading-relaxed">
+              We verify your campus email once to stop spam, then disconnect your email completely from your reviews.
+            </p>
 
-      <h1 class="font-headline-lg text-headline-lg text-primary mb-2">Student Verification</h1>
-      <p class="font-body-md text-body-md text-on-surface-variant mb-6">
-        Verification protects reviews from spam. Your email address is SHA-256 hashed and <strong>never stored</strong> with your review text.
-      </p>
-
-      <div v-if="errorMsg" class="p-4 mb-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-bold text-left">
-        ⚠️ {{ errorMsg }}
-      </div>
-
-      <div v-if="successMsg && step === 'otp'" class="p-4 mb-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl text-sm font-bold text-left">
-        📩 {{ successMsg }}
-      </div>
-
-      <!-- Step 1: Email -->
-      <form v-if="step === 'email'" @submit.prevent="handleSendOTP" class="space-y-4 text-left">
-        <div>
-          <label class="block font-label-sm text-xs uppercase text-on-surface-variant font-bold mb-2">
-            Student Email Address
-          </label>
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">mail</span>
-            <input
-              v-model="emailInput"
-              type="email"
-              placeholder="bsse-f22-045@superior.edu.pk"
-              class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface font-body-md focus:ring-2 focus:ring-primary outline-none"
-              required
-              :disabled="isLoading"
-            />
+            <ol class="space-y-3 pt-2 text-xs text-on-primary/85">
+              <li class="flex gap-2.5">
+                <span class="font-serif italic text-base text-band-strip leading-none">01</span>
+                <span>One-time 6-digit code sent to @superior.edu.pk.</span>
+              </li>
+              <li class="flex gap-2.5">
+                <span class="font-serif italic text-base text-band-strip leading-none">02</span>
+                <span>Email is irreversibly hashed with SHA-256 into an httpOnly cookie.</span>
+              </li>
+              <li class="flex gap-2.5">
+                <span class="font-serif italic text-base text-band-strip leading-none">03</span>
+                <span>Published reviews carry zero foreign keys back to your email.</span>
+              </li>
+            </ol>
           </div>
-          <span class="text-xs text-outline mt-1 block">Must end with <strong>@superior.edu.pk</strong></span>
-        </div>
 
-        <button
-          type="submit"
-          class="w-full bg-primary text-white py-3.5 rounded-full font-label-sm text-sm font-bold hover:bg-[#6B2FA0] transition-colors shadow-lg disabled:opacity-50"
-          :disabled="isLoading"
-        >
-          <span v-if="!isLoading">Send Verification Code →</span>
-          <span v-else>Sending...</span>
-        </button>
-      </form>
+          <div class="pt-4 border-t border-on-primary/15 flex gap-4 font-mono text-[10px] uppercase tracking-wider">
+            <router-link to="/privacy" class="text-on-primary/75 hover:text-on-primary underline">Privacy</router-link>
+            <router-link to="/terms" class="text-on-primary/75 hover:text-on-primary underline">Terms</router-link>
+          </div>
+        </aside>
 
-      <!-- Step 2: OTP -->
-      <form v-else-if="step === 'otp'" @submit.prevent="handleVerifyOTP" class="space-y-4 text-left">
-        <div>
-          <label class="block font-label-sm text-xs uppercase text-on-surface-variant font-bold mb-2">
-            Enter 6-Digit OTP Code
-          </label>
-          <input
-            v-model="otpInput"
-            type="text"
-            placeholder="6-digit code"
-            maxlength="6"
-            class="w-full text-center font-stat-display text-2xl tracking-[0.3em] bg-surface-container-low border-2 border-outline-variant/30 rounded-xl p-3 text-on-surface focus:ring-2 focus:ring-primary outline-none"
-            required
-            :disabled="isLoading"
-          />
-          <span class="text-xs text-outline mt-1 block text-center">Check your student email inbox or terminal log for code</span>
-        </div>
+        <!-- Right Interactive Auth Column -->
+        <section class="md:col-span-7 p-7 md:p-9 flex flex-col justify-center space-y-5">
+          <div class="space-y-1.5">
+            <p class="ed-eyebrow">Superior University</p>
+            <h2 class="font-display text-2xl font-extrabold text-ink-dark">
+              {{
+                step === 'email'
+                  ? 'Verify student email'
+                  : step === 'otp'
+                    ? 'Enter 6-digit code'
+                    : 'Session verified'
+              }}
+            </h2>
+            <p class="text-xs text-ink-muted leading-relaxed">
+              <template v-if="step === 'email'">
+                Enter your official @superior.edu.pk address to receive a one-time code.
+              </template>
+              <template v-else-if="step === 'otp'">
+                Enter the code sent to <strong class="text-ink-dark">{{ emailInput }}</strong>.
+              </template>
+              <template v-else>
+                Your anonymous student session is active in this browser.
+              </template>
+            </p>
+          </div>
 
-        <div class="flex gap-3">
-          <button type="button" @click="step = 'email'" class="px-4 py-3 rounded-full font-label-sm text-xs border border-outline-variant/30 text-on-surface-variant font-bold" :disabled="isLoading">
-            ← Change
-          </button>
-          <button
-            type="submit"
-            class="flex-1 bg-primary text-white py-3 rounded-full font-label-sm text-sm font-bold hover:bg-[#6B2FA0] transition-colors shadow-lg disabled:opacity-50"
-            :disabled="isLoading"
-          >
-            <span v-if="!isLoading">Verify & Continue</span>
-            <span v-else>Verifying...</span>
-          </button>
-        </div>
-      </form>
+          <div v-if="errorMsg" class="p-3 bg-error-soft text-error rounded-xl text-xs font-semibold">
+            {{ errorMsg }}
+          </div>
+          <div v-if="successMsg && step === 'otp'" class="p-3 bg-success-soft text-success rounded-xl text-xs font-semibold">
+            {{ successMsg }}
+          </div>
 
-      <!-- Step 3: Success -->
-      <div v-else-if="step === 'success'" class="space-y-4">
-        <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold">
-          ✓
-        </div>
-        <h3 class="text-xl font-bold text-on-surface">Verified Successfully!</h3>
-        <p class="text-sm text-on-surface-variant">Verified as <strong>{{ authStore.email }}</strong></p>
+          <!-- Step 1: Email -->
+          <form v-if="step === 'email'" @submit.prevent="handleSendOTP" class="space-y-4">
+            <div class="space-y-1.5">
+              <label for="student-email" class="block ed-eyebrow">Student email address</label>
+              <input
+                id="student-email"
+                v-model="emailInput"
+                type="email"
+                placeholder="bsse-f22-045@superior.edu.pk"
+                class="w-full ed-input px-4 py-3 text-sm"
+                required
+                :disabled="isLoading"
+              />
+              <span class="text-[11px] text-ink-subtle block">
+                Must end with <strong class="text-ink-muted">@superior.edu.pk</strong>
+              </span>
+            </div>
 
-        <button @click="showLogoutModal = true" class="text-xs text-red-600 underline font-bold pt-2 hover:text-red-700">
-          Unlink Email / Logout
-        </button>
+            <button
+              type="submit"
+              class="ed-btn-primary w-full py-3 text-xs font-semibold inline-flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
+              :disabled="isLoading"
+            >
+              <span>{{ isLoading ? 'Sending code...' : 'Send verification code' }}</span>
+              <span v-if="!isLoading" aria-hidden="true">→</span>
+            </button>
+          </form>
+
+          <!-- Step 2: 6 Individual OTP Boxes -->
+          <form v-else-if="step === 'otp'" @submit.prevent="handleVerifyOTP" class="space-y-5">
+            <div class="space-y-2">
+              <label class="block ed-eyebrow">6-digit one-time passcode</label>
+              <div class="grid grid-cols-6 gap-2" @paste="handleDigitPaste">
+                <input
+                  v-for="(_, index) in otpDigits"
+                  :key="index"
+                  :ref="(el) => setOtpRef(el, index)"
+                  :value="otpDigits[index]"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="6"
+                  autocomplete="one-time-code"
+                  :aria-label="`OTP digit ${index + 1}`"
+                  :disabled="isLoading"
+                  @input="handleDigitInput(index, $event)"
+                  @keydown="handleDigitKeydown(index, $event)"
+                  class="ed-input h-12 text-center font-mono text-lg font-bold tabular-nums text-primary"
+                />
+              </div>
+              <span class="text-[11px] text-ink-subtle block">
+                5 failed attempts trigger a 15-minute lockout for security.
+              </span>
+            </div>
+
+            <div class="flex gap-3">
+              <button
+                type="button"
+                @click="step = 'email'; errorMsg = ''"
+                class="ed-btn-soft px-4 py-2.5 text-xs font-semibold cursor-pointer"
+                :disabled="isLoading"
+              >
+                Change
+              </button>
+              <button
+                type="submit"
+                class="flex-1 ed-btn-primary py-2.5 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                :disabled="isLoading || otpInput.length !== 6"
+              >
+                {{ isLoading ? 'Verifying...' : 'Verify & continue →' }}
+              </button>
+            </div>
+          </form>
+
+          <!-- Step 3: Verified -->
+          <div v-else class="space-y-4">
+            <div class="bg-success-soft rounded-2xl p-4 space-y-1">
+              <p class="font-mono text-[10px] uppercase font-semibold text-success">Verified Campus Session</p>
+              <p class="text-sm font-bold text-ink-dark">
+                {{ authStore.email || 'Superior University Student' }}
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <router-link to="/review/new" class="ed-btn-primary px-5 py-2.5 text-xs font-semibold inline-flex items-center gap-2">
+                <span>Write a review</span>
+                <span aria-hidden="true">→</span>
+              </router-link>
+              <button
+                type="button"
+                @click="showLogoutModal = true"
+                class="ed-btn-soft px-5 py-2.5 text-xs font-semibold text-error cursor-pointer"
+              >
+                Unlink / log out
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </section>
 
-    <!-- Confirmation Modal -->
-    <div v-if="showLogoutModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl relative text-center animate-in fade-in zoom-in duration-200">
-        <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-3xl mb-4">
-          <span class="material-symbols-outlined text-[32px]">logout</span>
-        </div>
-
-        <h3 class="font-headline-lg text-xl font-bold text-on-surface mb-2">Unlink & Log Out?</h3>
-        <p class="text-xs text-on-surface-variant leading-relaxed mb-6">
-          Are you sure you want to unlink your student email? You will need to verify with a new OTP next time you submit a review.
+    <!-- Logout Modal -->
+    <div
+      v-if="showLogoutModal"
+      class="fixed inset-0 z-50 bg-ink-dark/40 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="ed-card p-7 max-w-sm w-full text-center space-y-4">
+        <h3 class="text-xl font-bold text-ink-dark">Unlink &amp; Log Out?</h3>
+        <p class="text-xs text-ink-muted leading-relaxed">
+          This clears your active session cookie. You will need a new OTP next time you post a review.
         </p>
-
-        <div class="flex gap-3">
+        <div class="flex gap-3 pt-1">
           <button
             type="button"
             @click="showLogoutModal = false"
-            class="flex-1 px-4 py-3 rounded-full text-xs font-bold border border-outline-variant/40 text-on-surface hover:bg-surface-variant transition-colors"
+            class="flex-1 ed-btn-soft py-2.5 text-xs font-semibold cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="button"
             @click="confirmLogout"
-            class="flex-1 bg-red-600 text-white py-3 rounded-full text-xs font-bold hover:bg-red-700 transition-colors shadow-md"
+            class="flex-1 bg-error text-on-primary rounded-full py-2.5 text-xs font-semibold hover:opacity-90 cursor-pointer"
           >
-            Yes, Unlink
+            Yes, unlink
           </button>
         </div>
       </div>
     </div>
   </main>
 </template>
-
-<style scoped></style>

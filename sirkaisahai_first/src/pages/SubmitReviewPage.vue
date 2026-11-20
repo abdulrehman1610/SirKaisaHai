@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import StarRating from '../components/ui/StarRating.vue';
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
+import RatingBadge from '../components/ui/RatingBadge.vue';
 import { useAuthStore } from '../stores/auth';
 import { api } from '../api';
 
@@ -14,9 +15,9 @@ const offerings = ref<{ id: string; label: string; courseId: string; professorId
 const isLoadingOfferings = ref(true);
 
 const selectedOfferingId = ref('');
-const ratingTeaching = ref(5);
-const ratingGrading = ref(4);
-const ratingWorkload = ref(3);
+const ratingTeaching = ref(4.5);
+const ratingGrading = ref(4.0);
+const ratingWorkload = ref(3.0);
 const gradeReceived = ref('A');
 const semesterTaken = ref('Fall 2025');
 const comment = ref('');
@@ -24,25 +25,28 @@ const comment = ref('');
 const isSubmitting = ref(false);
 const errorMsg = ref('');
 const isSuccess = ref(false);
+const submittedProfId = ref('');
 
-const profanityList = ['garbage', 'idiot', 'stupid', 'curse', 'scam'];
+const profanityList = ['garbage', 'idiot', 'stupid', 'curse', 'scam', 'cheat', 'fraud'];
 
 const containsProfanity = computed(() => {
   const text = comment.value.toLowerCase();
   return profanityList.some((w) => text.includes(w));
 });
 
-const isFormValid = computed(() => {
-  return (
-    selectedOfferingId.value !== '' &&
-    comment.value.trim().length >= 15 &&
-    !containsProfanity.value
+const liveOverallScore = computed(() => {
+  return Number(
+    (ratingTeaching.value * 0.4 + ratingGrading.value * 0.4 + (6 - ratingWorkload.value) * 0.2).toFixed(1)
   );
+});
+
+const isFormValid = computed(() => {
+  return selectedOfferingId.value !== '' && comment.value.trim().length >= 15 && !containsProfanity.value;
 });
 
 onMounted(async () => {
   if (!authStore.isVerified) {
-    router.push({ path: '/auth', query: { redirect: '/review/new' } });
+    router.push({ path: '/auth', query: { redirect: route.fullPath || '/review/new' } });
     return;
   }
 
@@ -98,9 +102,10 @@ async function handleSubmit() {
       userEmail: authStore.email || undefined
     });
 
+    submittedProfId.value = offering.professorId;
     isSuccess.value = true;
-  } catch (err: any) {
-    errorMsg.value = err.message || 'Failed to submit review. Try again.';
+  } catch (err: unknown) {
+    errorMsg.value = err instanceof Error ? err.message : 'Failed to submit review. Try again.';
   } finally {
     isSubmitting.value = false;
   }
@@ -108,182 +113,193 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <main class="max-w-container-max mx-auto px-4 md:px-gutter py-6 md:py-stack-lg flex items-center justify-center min-h-[80vh]">
-    <div v-if="isSuccess" class="bg-white rounded-2xl md:rounded-3xl p-8 md:p-12 custom-shadow shadow-2xl-ambient text-center max-w-lg w-full">
-      <span class="material-symbols-outlined text-green-600 text-6xl mb-4">task_alt</span>
-      <h2 class="font-headline-lg text-headline-lg text-[#6B2A5B] mb-2">Review Published Anonymously!</h2>
-      <p class="font-body-md text-on-surface-variant mb-6">
-        Your feedback is live! Your email address was hashed with SHA-256 and is <strong>never stored</strong> with your review text.
-      </p>
-      <div class="flex gap-4 justify-center">
-        <router-link to="/" class="bg-[#6B2A5B] text-white px-6 py-2.5 rounded-full font-label-sm hover:bg-[#6B2FA0] transition-colors">
-          Return Home
-        </router-link>
-        <button @click="isSuccess = false; comment = ''" class="bg-surface-container-low px-6 py-2.5 rounded-full font-label-sm text-on-surface hover:bg-surface-variant transition-colors">
-          Write Another
-        </button>
-      </div>
-    </div>
+  <main class="w-full">
+    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
+      <div class="max-w-2xl mx-auto flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div class="space-y-1.5">
+          <p class="ed-eyebrow">Verified Session · Your name never appears</p>
+          <h1 class="font-display text-3xl sm:text-4xl font-extrabold text-ink-dark">
+            Share your <span class="text-primary">perspective.</span>
+          </h1>
+        </div>
 
-    <div v-else class="bg-white rounded-2xl md:rounded-3xl p-5 md:p-12 custom-shadow shadow-2xl-ambient max-w-2xl w-full">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-surface-variant pb-4 md:pb-6 mb-4 md:mb-6 gap-2">
-        <div>
-          <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full font-label-sm text-xs font-bold flex items-center gap-1 inline-flex mb-2">
-            <span class="material-symbols-outlined text-[14px]">lock</span> 100% Anonymous (SHA-256 Hashed)
+        <div class="bg-card-pearl rounded-2xl px-4 py-2.5 flex items-center gap-3 self-start">
+          <span class="ed-eyebrow">Computed</span>
+          <RatingBadge :score="liveOverallScore" size="md" show-scale />
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-band-light px-4 md:px-gutter py-10 min-h-[55vh]">
+      <div class="max-w-2xl mx-auto">
+        <div v-if="isSuccess" class="ed-card p-8 md:p-10 text-center space-y-5">
+          <span class="inline-block font-mono text-[10px] uppercase tracking-wider font-semibold text-success bg-success-soft px-3 py-1 rounded-full">
+            Published anonymously
           </span>
-          <h1 class="font-headline-lg text-headline-lg text-[#6B2A5B]">Submit Teacher Review</h1>
+          <h2 class="text-2xl font-extrabold text-ink-dark">Your review is live.</h2>
+          <p class="text-sm text-ink-muted max-w-md mx-auto">
+            Your email address was hashed with SHA-256 and is never stored alongside your feedback.
+          </p>
+          <div class="flex flex-wrap justify-center gap-3 pt-1">
+            <router-link
+              v-if="submittedProfId"
+              :to="`/professor/${submittedProfId}`"
+              class="ed-btn-primary px-6 py-2.5 text-xs font-semibold inline-flex items-center gap-2"
+            >
+              <span>View dossier</span>
+              <span aria-hidden="true">→</span>
+            </router-link>
+            <router-link to="/" class="ed-btn-soft px-6 py-2.5 text-xs font-semibold">
+              Return home
+            </router-link>
+          </div>
+        </div>
+
+        <div v-else class="ed-card p-6 sm:p-8 md:p-10">
+          <LoadingSpinner v-if="isLoadingOfferings" text="Loading faculty list..." :rows="2" />
+
+          <form v-else @submit.prevent="handleSubmit" class="space-y-6">
+            <div v-if="errorMsg" class="p-3.5 bg-error-soft text-error rounded-xl text-xs font-semibold">
+              {{ errorMsg }}
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-baseline justify-between gap-2">
+                <label for="prof-select" class="ed-eyebrow">1. Select professor</label>
+                <router-link to="/search" class="text-xs font-semibold text-primary hover:underline">
+                  Teacher missing? Add them ↗
+                </router-link>
+              </div>
+              <select
+                id="prof-select"
+                v-model="selectedOfferingId"
+                class="w-full ed-input px-4 py-3 text-sm"
+                required
+              >
+                <option value="" disabled>Choose a professor</option>
+                <option v-for="off in offerings" :key="off.id" :value="off.id">
+                  {{ off.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="space-y-2">
+              <span class="block ed-eyebrow">2. Evaluation criteria (1.0 - 5.0)</span>
+              <div class="bg-surface-recessed rounded-2xl p-5 space-y-6">
+                <div class="space-y-2.5">
+                  <div class="flex justify-between items-center flex-wrap gap-2">
+                    <span class="text-sm font-bold text-ink-dark">Teaching clarity</span>
+                    <StarRating v-model="ratingTeaching" :readonly="false" show-value />
+                  </div>
+                  <input v-model.number="ratingTeaching" type="range" min="1" max="5" step="0.5" class="w-full accent-primary cursor-pointer" />
+                  <div class="flex justify-between font-mono text-[10px] text-ink-subtle">
+                    <span>1.0 Unclear</span>
+                    <span>5.0 Crystal clear</span>
+                  </div>
+                </div>
+
+                <div class="space-y-2.5 border-t border-border-soft pt-5">
+                  <div class="flex justify-between items-center flex-wrap gap-2">
+                    <span class="text-sm font-bold text-ink-dark">Grading fairness</span>
+                    <StarRating v-model="ratingGrading" :readonly="false" show-value />
+                  </div>
+                  <input v-model.number="ratingGrading" type="range" min="1" max="5" step="0.5" class="w-full accent-primary cursor-pointer" />
+                  <div class="flex justify-between font-mono text-[10px] text-ink-subtle">
+                    <span>1.0 Strict / Unclear</span>
+                    <span>5.0 Fair rubric</span>
+                  </div>
+                </div>
+
+                <div class="space-y-2.5 border-t border-border-soft pt-5">
+                  <div class="flex justify-between items-center flex-wrap gap-2">
+                    <span class="text-sm font-bold text-ink-dark">Workload intensity</span>
+                    <StarRating v-model="ratingWorkload" :readonly="false" mode="intensity" show-value />
+                  </div>
+                  <input v-model.number="ratingWorkload" type="range" min="1" max="5" step="0.5" class="w-full accent-warning cursor-pointer" />
+                  <div class="flex justify-between font-mono text-[10px] text-ink-subtle">
+                    <span>1.0 Light</span>
+                    <span>5.0 Heavy assignments &amp; quizzes</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="space-y-2">
+                <label for="sem-select" class="block ed-eyebrow">Semester taken</label>
+                <select id="sem-select" v-model="semesterTaken" class="w-full ed-input px-4 py-3 text-sm">
+                  <option value="Spring 2026">Spring 2026</option>
+                  <option value="Fall 2025">Fall 2025</option>
+                  <option value="Spring 2025">Spring 2025</option>
+                  <option value="Fall 2024">Fall 2024</option>
+                </select>
+              </div>
+
+              <div class="space-y-2">
+                <span class="block ed-eyebrow">Grade received (optional)</span>
+                <div class="flex gap-1.5 flex-wrap pt-0.5">
+                  <button
+                    v-for="g in ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'F']"
+                    :key="g"
+                    type="button"
+                    class="px-3 py-1.5 font-mono text-xs font-semibold rounded-full cursor-pointer transition-colors"
+                    :class="
+                      gradeReceived === g
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-surface-recessed text-ink-muted hover:text-primary'
+                    "
+                    @click="gradeReceived = g"
+                  >
+                    {{ g }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex justify-between items-center">
+                <label for="comment-box" class="ed-eyebrow">3. Student review comments</label>
+                <span
+                  class="font-mono text-xs tabular-nums"
+                  :class="comment.length > 500 ? 'text-error font-bold' : 'text-ink-subtle'"
+                >
+                  {{ comment.length }} / 500
+                </span>
+              </div>
+
+              <textarea
+                id="comment-box"
+                v-model="comment"
+                rows="4"
+                class="w-full ed-input p-4 text-sm"
+                placeholder="Share details about exams, projects, lecture clarity, attendance policies..."
+                maxlength="500"
+                required
+              ></textarea>
+
+              <p v-if="containsProfanity" class="text-xs font-semibold text-error">
+                Please keep feedback constructive and remove inappropriate language.
+              </p>
+            </div>
+
+            <div class="space-y-2.5 pt-1">
+              <button
+                type="submit"
+                class="w-full py-3.5 text-sm font-semibold rounded-full inline-flex items-center justify-center gap-3 cursor-pointer"
+                :class="isFormValid ? 'ed-btn-primary' : 'bg-surface-recessed text-ink-subtle cursor-not-allowed'"
+                :disabled="!isFormValid || isSubmitting"
+              >
+                <span>{{ isSubmitting ? 'Publishing...' : 'Publish anonymous review' }}</span>
+                <span v-if="!isSubmitting" aria-hidden="true">→</span>
+              </button>
+
+              <p v-if="!isFormValid" class="text-center text-xs text-ink-subtle">
+                Select a professor and write at least 15 characters ({{ comment.trim().length }}/15).
+              </p>
+            </div>
+          </form>
         </div>
       </div>
-
-      <LoadingSpinner v-if="isLoadingOfferings" text="Loading course options..." />
-
-      <form v-else @submit.prevent="handleSubmit" class="space-y-6">
-        <div v-if="errorMsg" class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-bold">
-          ⚠️ {{ errorMsg }}
-        </div>
-
-        <div>
-          <label class="block font-label-sm text-label-sm uppercase text-on-surface-variant font-bold mb-2">
-            1. Select Professor & Course
-          </label>
-          <select v-model="selectedOfferingId" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl p-3 text-on-surface font-body-md focus:ring-2 focus:ring-[#6B2A5B] outline-none" required>
-            <option value="" disabled>-- Choose teacher --</option>
-            <option v-for="off in offerings" :key="off.id" :value="off.id">
-              {{ off.label }}
-            </option>
-          </select>
-        </div>
-
-        <!-- 2. Performance Ratings Section -->
-        <div>
-          <label class="block font-label-sm text-label-sm uppercase text-on-surface-variant font-bold mb-2">
-            2. Performance Ratings (Adjustable 1.0 - 5.0)
-          </label>
-          <div class="bg-surface-container-low p-5 rounded-2xl space-y-6 border border-outline-variant/20">
-            <!-- Metric 1: Teaching Clarity -->
-            <div class="space-y-2">
-              <div class="flex justify-between items-center flex-wrap gap-2">
-                <span class="font-body-md text-sm font-bold text-on-surface">Teaching Clarity</span>
-                <StarRating v-model="ratingTeaching" :readonly="false" size="lg" showValue />
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="5"
-                step="0.5"
-                v-model.number="ratingTeaching"
-                class="w-full accent-[#6B2A5B] cursor-pointer h-2 bg-outline-variant/30 rounded-lg"
-              />
-            </div>
-
-            <!-- Metric 2: Grading Fairness -->
-            <div class="space-y-2 border-t border-outline-variant/20 pt-4">
-              <div class="flex justify-between items-center flex-wrap gap-2">
-                <span class="font-body-md text-sm font-bold text-on-surface">Grading Fairness</span>
-                <StarRating v-model="ratingGrading" :readonly="false" size="lg" showValue />
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="5"
-                step="0.5"
-                v-model.number="ratingGrading"
-                class="w-full accent-[#6B2A5B] cursor-pointer h-2 bg-outline-variant/30 rounded-lg"
-              />
-            </div>
-
-            <!-- Metric 3: Workload -->
-            <div class="space-y-2 border-t border-outline-variant/20 pt-4">
-              <div class="flex justify-between items-center flex-wrap gap-2">
-                <span class="font-body-md text-sm font-bold text-on-surface">Workload Heavy (5=Heavy)</span>
-                <StarRating v-model="ratingWorkload" :readonly="false" size="lg" showValue />
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="5"
-                step="0.5"
-                v-model.number="ratingWorkload"
-                class="w-full accent-[#6B2A5B] cursor-pointer h-2 bg-outline-variant/30 rounded-lg"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block font-label-sm text-label-sm uppercase text-on-surface-variant font-bold mb-2">
-              Semester Taken
-            </label>
-            <select v-model="semesterTaken" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl p-3 text-on-surface font-body-md focus:ring-2 focus:ring-[#6B2A5B] outline-none">
-              <option value="Fall 2025">Fall 2025</option>
-              <option value="Spring 2025">Spring 2025</option>
-              <option value="Fall 2024">Fall 2024</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block font-label-sm text-label-sm uppercase text-on-surface-variant font-bold mb-2">
-              Grade Received (Optional)
-            </label>
-            <div class="flex gap-1.5 flex-wrap">
-              <button
-                v-for="g in ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'F']"
-                :key="g"
-                type="button"
-                class="px-3 py-1.5 rounded-lg font-label-sm text-xs font-bold border transition-colors"
-                :class="gradeReceived === g ? 'bg-[#6B2A5B] text-white border-[#6B2A5B]' : 'bg-surface border-outline-variant/30 text-on-surface-variant hover:bg-surface-variant'"
-                @click="gradeReceived = g"
-              >
-                {{ g }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="flex justify-between items-center mb-2">
-            <label class="font-label-sm text-label-sm uppercase text-on-surface-variant font-bold">
-              3. Student Review Comments
-            </label>
-            <span class="font-label-sm text-xs text-outline" :class="{ 'text-red-500 font-bold': comment.length > 500 }">
-              {{ comment.length }} / 500
-            </span>
-          </div>
-
-          <textarea
-            v-model="comment"
-            rows="4"
-            class="w-full bg-surface-container-low border border-outline-variant/30 rounded-2xl p-4 text-on-surface font-body-md placeholder:text-outline-variant focus:ring-2 focus:ring-[#6B2A5B] outline-none"
-            placeholder="Share details about exams, projects, lecture clarity, attendance policies..."
-            maxlength="500"
-            required
-          ></textarea>
-
-          <div v-if="containsProfanity" class="mt-2 text-xs font-bold text-red-600">
-            ⚠️ Please refrain from using abusive or inappropriate terms. Keep feedback constructive.
-          </div>
-        </div>
-
-        <!-- Submit Button: Light Plum Tint when Draft -> Solid 100% Plum when Ready -->
-        <div>
-          <button
-            type="submit"
-            class="w-full py-4 rounded-full font-label-sm text-base font-bold transition-all duration-300"
-            :class="isFormValid ? 'bg-[#6B2A5B] text-white hover:bg-[#6B2FA0] shadow-lg shadow-[#6B2A5B]/30 active:scale-[0.99] cursor-pointer' : 'bg-[#6B2A5B]/15 text-[#6B2A5B] border border-[#6B2A5B]/20 shadow-none cursor-not-allowed'"
-            :disabled="!isFormValid || isSubmitting"
-          >
-            <span v-if="!isSubmitting">Publish Anonymous Review</span>
-            <span v-else>Publishing...</span>
-          </button>
-
-          <p v-if="!isFormValid" class="text-center font-label-sm text-xs text-[#6B2A5B]/70 mt-2 font-medium">
-            💡 Select a course & type at least 15 characters to publish (Current: {{ comment.trim().length }}/15)
-          </p>
-        </div>
-      </form>
-    </div>
+    </section>
   </main>
 </template>
-
-<style scoped></style>
