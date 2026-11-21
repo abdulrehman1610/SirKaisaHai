@@ -127,7 +127,7 @@ function confirmLogout() {
 </script>
 
 <template>
-  <div class="flex-1 w-full bg-band-hero px-4 md:px-gutter py-6 flex items-center justify-center">
+  <div class="flex-1 w-full min-h-screen bg-band-hero px-4 md:px-gutter pt-24 pb-8 flex items-center justify-center">
     <div class="max-w-container-max w-full ed-card overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[460px] lg:min-h-[500px]">
       <!-- Left Deep Plum Trust Column -->
       <aside class="md:col-span-5 bg-primary-dark text-on-primary p-8 md:p-10 lg:p-12 flex flex-col justify-between gap-8">

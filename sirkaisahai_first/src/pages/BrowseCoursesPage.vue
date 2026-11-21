@@ -1,75 +1,107 @@
-<script setup lang="ts">
-import { mockCourses } from '../api/mockData';
-import RatingBadge from '../components/ui/RatingBadge.vue';
-</script>
-
 <template>
-  <main class="w-full">
-    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
-      <div class="max-w-container-max mx-auto flex flex-col md:flex-row md:items-end justify-between gap-5">
-        <div class="space-y-1.5">
-          <p class="ed-eyebrow">Course Reference Catalogue</p>
-          <h1 class="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold text-ink-dark">
-            Browse <span class="text-primary">courses.</span>
-          </h1>
-          <p class="text-sm text-ink-muted max-w-xl leading-relaxed">
-            Explore core Computing &amp; IT courses below. Live student reviews are currently indexed directly by professor in the faculty directory.
-          </p>
-        </div>
+  <div class="courses-stage flex-1 w-full bg-band-hero relative overflow-hidden flex items-center justify-center px-4 md:px-gutter pt-24 pb-12">
+    <!-- Leading Diagonal Sweep Accent Veil -->
+    <div class="diagonal-veil" aria-hidden="true"></div>
 
+    <!-- Primary Prominent Plum-Pink (#61204C) Top-Left to Bottom-Right Curtain -->
+    <div class="diagonal-curtain" aria-hidden="true"></div>
+
+    <!-- Centered Editorial Content -->
+    <section class="courses-content relative z-10 max-w-container-max w-full mx-auto text-center space-y-6">
+      <p class="font-mono text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-on-primary/65">
+        Browse Courses · Superior University
+      </p>
+
+      <h1 class="font-display text-4xl sm:text-5xl md:text-[62px] font-extrabold text-on-primary leading-[1.03] tracking-[-0.03em] max-w-3xl mx-auto">
+        This section is not available right now.
+      </h1>
+
+      <p class="text-sm sm:text-base text-on-primary/75 max-w-md mx-auto leading-relaxed">
+        Dedicated course pages are still being prepared. You can search and review professors right now.
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-3.5 pt-2">
         <router-link
           to="/search"
-          class="ed-btn-primary px-6 py-2.5 text-xs font-semibold inline-flex items-center gap-3 self-start md:self-auto shrink-0"
+          class="bg-card-pearl text-primary hover:bg-band-hero px-6 py-3 rounded-full text-xs font-bold inline-flex items-center gap-3 transition-colors"
         >
           <span>Browse professors</span>
           <span aria-hidden="true">→</span>
         </router-link>
-      </div>
-    </section>
 
-    <section class="bg-band-light px-4 md:px-gutter py-10 min-h-[50vh]">
-      <div class="max-w-container-max mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-        <article
-          v-for="course in mockCourses"
-          :key="course.id"
-          class="ed-card p-6 flex flex-col justify-between gap-5"
+        <router-link
+          to="/"
+          class="border border-on-primary/30 text-on-primary hover:bg-on-primary/10 px-6 py-3 rounded-full text-xs font-semibold transition-colors"
         >
-          <div class="space-y-3">
-            <div class="flex items-start justify-between gap-3">
-              <div class="space-y-1">
-                <div class="font-mono text-xs font-bold text-primary">
-                  {{ course.code }} <span class="text-ink-subtle font-normal">· {{ course.creditHours }} Credit Hours</span>
-                </div>
-                <h2 class="text-xl font-extrabold text-ink-dark">
-                  <router-link :to="`/course/${course.id}`" class="hover:text-primary transition-colors">
-                    {{ course.title }}
-                  </router-link>
-                </h2>
-                <p class="text-xs text-ink-subtle">{{ course.departmentName }}</p>
-              </div>
-
-              <RatingBadge :score="course.avgRating" size="md" show-scale />
-            </div>
-
-            <p class="text-sm text-ink-muted leading-relaxed">
-              {{ course.description }}
-            </p>
-          </div>
-
-          <div class="flex items-center justify-between gap-3 pt-2 border-t border-border-soft/60">
-            <span class="font-mono text-xs text-ink-subtle tabular-nums">
-              {{ course.totalReviews }} reference notes
-            </span>
-            <router-link
-              :to="`/course/${course.id}`"
-              class="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-2"
-            >
-              <span>Inspect course</span>
-              <span aria-hidden="true">→</span>
-            </router-link>
-          </div>
-        </article>
+          Back to home
+        </router-link>
       </div>
     </section>
-  </main>
+  </div>
 </template>
+
+<style scoped>
+.courses-stage {
+  min-height: 100vh;
+}
+
+.diagonal-veil,
+.diagonal-curtain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: clip-path;
+}
+
+.diagonal-veil {
+  background-color: #7c2d63;
+  clip-path: polygon(0% 0%, 0% 0%, 0% 0%);
+  animation: diagonalSweep 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.diagonal-curtain {
+  background-color: #61204c;
+  clip-path: polygon(0% 0%, 0% 0%, 0% 0%);
+  animation: diagonalSweep 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards;
+}
+
+.courses-content {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: contentReveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.42s forwards;
+}
+
+@keyframes diagonalSweep {
+  0% {
+    clip-path: polygon(0% 0%, 0% 0%, 0% 0%);
+  }
+  100% {
+    clip-path: polygon(0% 0%, 220% 0%, 0% 220%);
+  }
+}
+
+@keyframes contentReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diagonal-veil,
+  .diagonal-curtain {
+    animation: none;
+    clip-path: polygon(0% 0%, 220% 0%, 0% 220%);
+  }
+
+  .courses-content {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+</style>

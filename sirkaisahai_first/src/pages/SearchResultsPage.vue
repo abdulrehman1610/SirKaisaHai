@@ -123,7 +123,7 @@ async function handleCreateProfessor() {
 <template>
   <main class="w-full">
     <!-- Top Blush Header Band -->
-    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
+    <section class="bg-band-hero px-4 md:px-gutter pt-24 pb-10">
       <div class="max-w-container-max mx-auto space-y-6">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div class="space-y-1.5">

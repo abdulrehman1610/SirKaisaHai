@@ -71,7 +71,7 @@ function getInitials(name: string) {
 <template>
   <div class="w-full">
     <!-- BAND 1: Hero Band (#E7DBE3) -->
-    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10 md:pb-12">
+    <section class="bg-band-hero px-4 md:px-gutter pt-24 pb-10 md:pb-12">
       <div class="max-w-container-max mx-auto space-y-8">
         <!-- Top Eyebrow Row -->
         <div class="flex items-center justify-between gap-4">

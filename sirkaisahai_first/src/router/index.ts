@@ -32,7 +32,8 @@ const router = createRouter({
     {
       path: '/courses',
       name: 'browse-courses',
-      component: BrowseCoursesPage
+      component: BrowseCoursesPage,
+      meta: { hideFooter: true }
     },
     {
       path: '/professor/:id',

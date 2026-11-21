@@ -114,7 +114,7 @@ async function handleSubmit() {
 
 <template>
   <main class="w-full">
-    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
+    <section class="bg-band-hero px-4 md:px-gutter pt-24 pb-10">
       <div class="max-w-2xl mx-auto flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div class="space-y-1.5">
           <p class="ed-eyebrow">Verified Session · Your name never appears</p>

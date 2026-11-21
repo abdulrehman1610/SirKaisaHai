@@ -40,9 +40,9 @@ function confirmLogout() {
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 w-full bg-band-hero/95 pt-3.5 pb-2 px-4 md:px-gutter">
+  <header class="fixed top-0 left-0 right-0 z-50 w-full bg-transparent pointer-events-none pt-3.5 pb-2 px-4 md:px-gutter">
     <div class="max-w-container-max mx-auto">
-      <nav class="ed-pill-nav px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+      <nav class="ed-pill-nav pointer-events-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
         <!-- Left: Brand Wordmark + Stacked University Tag -->
         <router-link to="/" class="shrink-0">
           <AppLogo size="md" :show-subtag="true" />
@@ -133,7 +133,7 @@ function confirmLogout() {
       </nav>
 
       <!-- Mobile Menu -->
-      <div v-if="isMobileMenuOpen" class="lg:hidden mt-2.5 ed-card p-3 flex flex-col gap-1">
+      <div v-if="isMobileMenuOpen" class="lg:hidden mt-2.5 ed-card pointer-events-auto p-3 flex flex-col gap-1">
         <router-link to="/" class="mobile-nav-link" :class="{ active: isHomeActive }">Home</router-link>
         <router-link to="/search" class="mobile-nav-link" :class="{ active: isProfessorsActive }">Browse professors</router-link>
         <router-link to="/courses" class="mobile-nav-link" :class="{ active: isCoursesActive }">Browse courses</router-link>

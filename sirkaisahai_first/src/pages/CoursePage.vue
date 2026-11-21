@@ -48,7 +48,7 @@ function handleWriteReview() {
 
 <template>
   <main class="w-full">
-    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
+    <section class="bg-band-hero px-4 md:px-gutter pt-24 pb-10">
       <div class="max-w-container-max mx-auto">
         <LoadingSpinner v-if="isLoading" text="Loading course profile..." :rows="2" />
 

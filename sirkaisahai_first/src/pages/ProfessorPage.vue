@@ -114,7 +114,7 @@ function getInitials(name: string) {
 <template>
   <main class="w-full">
     <!-- Top Blush Band: Professor Header -->
-    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
+    <section class="bg-band-hero px-4 md:px-gutter pt-24 pb-10">
       <div class="max-w-container-max mx-auto">
         <div v-if="isLoading" class="ed-card p-7 space-y-4">
           <div class="flex items-center gap-4">

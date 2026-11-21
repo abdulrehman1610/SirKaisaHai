@@ -1,6 +1,6 @@
 <template>
   <main class="w-full">
-    <section class="bg-band-hero px-4 md:px-gutter pt-6 pb-10">
+    <section class="bg-band-hero px-4 md:px-gutter pt-24 pb-10">
       <div class="max-w-3xl mx-auto space-y-2">
         <p class="ed-eyebrow">Privacy Policy &amp; Architecture</p>
         <h1 class="font-display text-3xl sm:text-4xl font-extrabold text-ink-dark">
