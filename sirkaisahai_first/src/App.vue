@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useRoute } from 'vue-router';
 import NavBar from './components/layout/NavBar.vue';
 import Footer from './components/layout/Footer.vue';
+
+const route = useRoute();
 </script>
 
 <template>
@@ -15,7 +18,7 @@ import Footer from './components/layout/Footer.vue';
       </router-view>
     </main>
 
-    <Footer />
+    <Footer v-if="!route.meta.hideFooter" />
   </div>
 </template>
 
@@ -28,6 +31,8 @@ import Footer from './components/layout/Footer.vue';
 
 .main-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Page Transition */

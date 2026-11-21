@@ -127,49 +127,49 @@ function confirmLogout() {
 </script>
 
 <template>
-  <main class="w-full">
-    <section class="bg-band-hero px-4 md:px-gutter pt-8 pb-16 min-h-[76vh] flex items-center justify-center">
-      <div class="max-w-3xl w-full ed-card overflow-hidden grid grid-cols-1 md:grid-cols-12">
-        <!-- Left Deep Plum Trust Column -->
-        <aside class="md:col-span-5 bg-primary-dark text-on-primary p-7 md:p-8 flex flex-col justify-between gap-6">
-          <div class="space-y-4">
-            <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-on-primary/55">
-              Zero-Knowledge Auth
-            </p>
-            <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-on-primary leading-tight">
-              Your identity stays yours.
-            </h1>
-            <p class="text-xs text-on-primary/75 leading-relaxed">
-              We verify your campus email once to stop spam, then disconnect your email completely from your reviews.
-            </p>
+  <div class="flex-1 w-full bg-band-hero px-4 md:px-gutter py-6 flex items-center justify-center">
+    <div class="max-w-container-max w-full ed-card overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[460px] lg:min-h-[500px]">
+      <!-- Left Deep Plum Trust Column -->
+      <aside class="md:col-span-5 bg-primary-dark text-on-primary p-8 md:p-10 lg:p-12 flex flex-col justify-between gap-8">
+        <div class="space-y-5">
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-on-primary/55">
+            Zero-Knowledge Auth
+          </p>
+          <h1 class="font-display text-3xl lg:text-4xl font-extrabold text-on-primary leading-tight">
+            Your identity stays yours.
+          </h1>
+          <p class="text-sm text-on-primary/75 leading-relaxed">
+            We verify your campus email once to stop spam, then disconnect your email completely from your reviews.
+          </p>
 
-            <ol class="space-y-3 pt-2 text-xs text-on-primary/85">
-              <li class="flex gap-2.5">
-                <span class="font-serif italic text-base text-band-strip leading-none">01</span>
-                <span>One-time 6-digit code sent to @superior.edu.pk.</span>
-              </li>
-              <li class="flex gap-2.5">
-                <span class="font-serif italic text-base text-band-strip leading-none">02</span>
-                <span>Email is irreversibly hashed with SHA-256 into an httpOnly cookie.</span>
-              </li>
-              <li class="flex gap-2.5">
-                <span class="font-serif italic text-base text-band-strip leading-none">03</span>
-                <span>Published reviews carry zero foreign keys back to your email.</span>
-              </li>
-            </ol>
-          </div>
+          <ol class="space-y-3.5 pt-2 text-sm text-on-primary/85">
+            <li class="flex gap-3 items-baseline">
+              <span class="font-serif italic text-lg text-band-strip leading-none shrink-0">01</span>
+              <span>One-time 6-digit code sent to @superior.edu.pk.</span>
+            </li>
+            <li class="flex gap-3 items-baseline">
+              <span class="font-serif italic text-lg text-band-strip leading-none shrink-0">02</span>
+              <span>Email is irreversibly hashed with SHA-256 into an httpOnly cookie.</span>
+            </li>
+            <li class="flex gap-3 items-baseline">
+              <span class="font-serif italic text-lg text-band-strip leading-none shrink-0">03</span>
+              <span>Published reviews carry zero foreign keys back to your email.</span>
+            </li>
+          </ol>
+        </div>
 
-          <div class="pt-4 border-t border-on-primary/15 flex gap-4 font-mono text-[10px] uppercase tracking-wider">
-            <router-link to="/privacy" class="text-on-primary/75 hover:text-on-primary underline">Privacy</router-link>
-            <router-link to="/terms" class="text-on-primary/75 hover:text-on-primary underline">Terms</router-link>
-          </div>
-        </aside>
+        <div class="pt-4 border-t border-on-primary/15 flex gap-5 font-mono text-[10px] uppercase tracking-wider">
+          <router-link to="/privacy" class="text-on-primary/75 hover:text-on-primary underline">Privacy</router-link>
+          <router-link to="/terms" class="text-on-primary/75 hover:text-on-primary underline">Terms</router-link>
+        </div>
+      </aside>
 
-        <!-- Right Interactive Auth Column -->
-        <section class="md:col-span-7 p-7 md:p-9 flex flex-col justify-center space-y-5">
+      <!-- Right Interactive Auth Column -->
+      <section class="md:col-span-7 p-8 md:p-10 lg:p-14 flex flex-col justify-center">
+        <div class="max-w-lg w-full mx-auto space-y-6">
           <div class="space-y-1.5">
             <p class="ed-eyebrow">Superior University</p>
-            <h2 class="font-display text-2xl font-extrabold text-ink-dark">
+            <h2 class="font-display text-2xl sm:text-3xl font-extrabold text-ink-dark">
               {{
                 step === 'email'
                   ? 'Verify student email'
@@ -178,7 +178,7 @@ function confirmLogout() {
                     : 'Session verified'
               }}
             </h2>
-            <p class="text-xs text-ink-muted leading-relaxed">
+            <p class="text-sm text-ink-muted leading-relaxed">
               <template v-if="step === 'email'">
                 Enter your official @superior.edu.pk address to receive a one-time code.
               </template>
@@ -199,8 +199,8 @@ function confirmLogout() {
           </div>
 
           <!-- Step 1: Email -->
-          <form v-if="step === 'email'" @submit.prevent="handleSendOTP" class="space-y-4">
-            <div class="space-y-1.5">
+          <form v-if="step === 'email'" @submit.prevent="handleSendOTP" class="space-y-5">
+            <div class="space-y-2">
               <label for="student-email" class="block ed-eyebrow">Student email address</label>
               <input
                 id="student-email"
@@ -211,14 +211,14 @@ function confirmLogout() {
                 required
                 :disabled="isLoading"
               />
-              <span class="text-[11px] text-ink-subtle block">
+              <span class="text-xs text-ink-subtle block">
                 Must end with <strong class="text-ink-muted">@superior.edu.pk</strong>
               </span>
             </div>
 
             <button
               type="submit"
-              class="ed-btn-primary w-full py-3 text-xs font-semibold inline-flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
+              class="ed-btn-primary w-full py-3.5 text-sm font-semibold inline-flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
               :disabled="isLoading"
             >
               <span>{{ isLoading ? 'Sending code...' : 'Send verification code' }}</span>
@@ -230,7 +230,7 @@ function confirmLogout() {
           <form v-else-if="step === 'otp'" @submit.prevent="handleVerifyOTP" class="space-y-5">
             <div class="space-y-2">
               <label class="block ed-eyebrow">6-digit one-time passcode</label>
-              <div class="grid grid-cols-6 gap-2" @paste="handleDigitPaste">
+              <div class="grid grid-cols-6 gap-2.5" @paste="handleDigitPaste">
                 <input
                   v-for="(_, index) in otpDigits"
                   :key="index"
@@ -244,10 +244,10 @@ function confirmLogout() {
                   :disabled="isLoading"
                   @input="handleDigitInput(index, $event)"
                   @keydown="handleDigitKeydown(index, $event)"
-                  class="ed-input h-12 text-center font-mono text-lg font-bold tabular-nums text-primary"
+                  class="ed-input h-12 sm:h-14 text-center font-mono text-lg font-bold tabular-nums text-primary"
                 />
               </div>
-              <span class="text-[11px] text-ink-subtle block">
+              <span class="text-xs text-ink-subtle block">
                 5 failed attempts trigger a 15-minute lockout for security.
               </span>
             </div>
@@ -256,14 +256,14 @@ function confirmLogout() {
               <button
                 type="button"
                 @click="step = 'email'; errorMsg = ''"
-                class="ed-btn-soft px-4 py-2.5 text-xs font-semibold cursor-pointer"
+                class="ed-btn-soft px-5 py-3 text-xs font-semibold cursor-pointer"
                 :disabled="isLoading"
               >
                 Change
               </button>
               <button
                 type="submit"
-                class="flex-1 ed-btn-primary py-2.5 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                class="flex-1 ed-btn-primary py-3 text-xs font-semibold cursor-pointer disabled:opacity-50"
                 :disabled="isLoading || otpInput.length !== 6"
               >
                 {{ isLoading ? 'Verifying...' : 'Verify & continue →' }}
@@ -272,7 +272,7 @@ function confirmLogout() {
           </form>
 
           <!-- Step 3: Verified -->
-          <div v-else class="space-y-4">
+          <div v-else class="space-y-5">
             <div class="bg-success-soft rounded-2xl p-4 space-y-1">
               <p class="font-mono text-[10px] uppercase font-semibold text-success">Verified Campus Session</p>
               <p class="text-sm font-bold text-ink-dark">
@@ -281,22 +281,22 @@ function confirmLogout() {
             </div>
 
             <div class="flex flex-wrap gap-3">
-              <router-link to="/review/new" class="ed-btn-primary px-5 py-2.5 text-xs font-semibold inline-flex items-center gap-2">
+              <router-link to="/review/new" class="ed-btn-primary px-6 py-3 text-xs font-semibold inline-flex items-center gap-2">
                 <span>Write a review</span>
                 <span aria-hidden="true">→</span>
               </router-link>
               <button
                 type="button"
                 @click="showLogoutModal = true"
-                class="ed-btn-soft px-5 py-2.5 text-xs font-semibold text-error cursor-pointer"
+                class="ed-btn-soft px-6 py-3 text-xs font-semibold text-error cursor-pointer"
               >
                 Unlink / log out
               </button>
             </div>
           </div>
-        </section>
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
 
     <!-- Logout Modal -->
     <div
@@ -328,5 +328,5 @@ function confirmLogout() {
         </div>
       </div>
     </div>
-  </main>
+  </div>
 </template>
