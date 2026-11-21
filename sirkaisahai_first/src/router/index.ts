@@ -21,7 +21,8 @@ const router = createRouter({
     {
       path: '/auth',
       name: 'auth',
-      component: AuthPage
+      component: AuthPage,
+      meta: { hideFooter: true }
     },
     {
       path: '/search',
