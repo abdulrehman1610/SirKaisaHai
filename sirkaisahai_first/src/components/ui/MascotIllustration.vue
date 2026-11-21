@@ -1,5 +1,5 @@
 <template>
-  <div class="relative inline-flex items-center justify-center select-none w-full max-w-[300px] sm:max-w-[340px] md:max-w-[380px] lg:max-w-[400px]">
+  <div class="relative inline-flex items-center justify-center select-none w-full max-w-[300px] sm:max-w-[330px]">
     <svg
       viewBox="0 0 340 270"
       fill="none"
