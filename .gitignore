@@ -68,6 +68,8 @@ pnpm-debug.log*
 /desktop_prompt.md
 /new_context.md
 /stitch_prompt.md
+/Documentations/
+/project.tldr
 
 # IDE & OS files
 .vscode/
