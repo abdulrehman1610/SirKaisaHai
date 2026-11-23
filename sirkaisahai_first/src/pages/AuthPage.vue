@@ -183,7 +183,7 @@ function confirmLogout() {
                 Enter your official @superior.edu.pk address to receive a one-time code.
               </template>
               <template v-else-if="step === 'otp'">
-                Enter the code sent to <strong class="text-ink-dark">{{ emailInput }}</strong>.
+                Enter the code sent to <strong class="text-ink-dark">{{ emailInput }}</strong>. If you don't see it in your inbox, please check your <strong class="text-primary">Spam or Junk</strong> folder.
               </template>
               <template v-else>
                 Your anonymous student session is active in this browser.
@@ -196,6 +196,12 @@ function confirmLogout() {
           </div>
           <div v-if="successMsg && step === 'otp'" class="p-3 bg-success-soft text-success rounded-xl text-xs font-semibold">
             {{ successMsg }}
+          </div>
+          <div v-if="step === 'otp'" class="p-3 bg-warning-soft text-warning rounded-xl text-xs font-medium flex items-start gap-2.5">
+            <span class="font-bold shrink-0" aria-hidden="true">!</span>
+            <span>
+              <strong>Tip:</strong> University email filters sometimes route verification codes to <strong>Spam / Junk</strong>. Please check your Spam or Junk folder if the code hasn't arrived within 30 seconds.
+            </span>
           </div>
 
           <!-- Step 1: Email -->

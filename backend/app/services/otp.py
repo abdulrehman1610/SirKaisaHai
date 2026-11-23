@@ -125,7 +125,7 @@ def request_otp_service(db: Session, email: str) -> Tuple[bool, str, int]:
     send_real_email(email_clean, otp_code)
 
     # Generic non-enumerating response (does not leak prior verification status)
-    msg = "If this Superior University address is valid, a 6-digit verification code has been sent."
+    msg = "If this Superior University address is valid, a 6-digit verification code has been sent. Please check your inbox and Spam/Junk folder."
     return True, msg, 200
 
 
