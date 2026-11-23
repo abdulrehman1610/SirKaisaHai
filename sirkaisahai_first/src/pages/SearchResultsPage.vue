@@ -43,7 +43,24 @@ const filteredResults = computed(() => {
   });
 });
 
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function loadResults(showFullSkeleton = false) {
+  if (showFullSkeleton || results.value.length === 0) {
+    isLoading.value = true;
+  }
+  try {
+    results.value = await api.search(queryText.value, selectedDept.value);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 async function loadData() {
+  await loadResults(results.value.length === 0);
+}
+
+onMounted(async () => {
   isLoading.value = true;
   try {
     const [depts, items] = await Promise.all([
@@ -55,25 +72,31 @@ async function loadData() {
   } finally {
     isLoading.value = false;
   }
-}
-
-onMounted(loadData);
+});
 
 watch([() => route.query.q, () => route.query.dept], ([newQ, newDept]) => {
-  queryText.value = (newQ as string) || '';
-  if (typeof newDept === 'string' && newDept) {
-    selectedDept.value = newDept;
-  }
-  loadData();
+  const nextQ = (newQ as string) || '';
+  const nextDept = typeof newDept === 'string' && newDept ? newDept : 'all';
+  if (nextQ === queryText.value && nextDept === selectedDept.value) return;
+  queryText.value = nextQ;
+  selectedDept.value = nextDept;
+  loadResults(false);
 });
 
 watch(selectedDept, (dept) => {
-  router.replace({ query: { ...route.query, dept: dept === 'all' ? undefined : dept } });
-  loadData();
+  const targetDept = dept === 'all' ? undefined : dept;
+  if ((route.query.dept || undefined) !== targetDept) {
+    router.replace({ query: { ...route.query, dept: targetDept } });
+  }
+  loadResults(false);
 });
 
 function handleSearchInput() {
-  router.replace({ query: { ...route.query, q: queryText.value || undefined } });
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    router.replace({ query: { ...route.query, q: queryText.value || undefined } });
+    loadResults(false);
+  }, 250);
 }
 
 function getInitials(name: string) {

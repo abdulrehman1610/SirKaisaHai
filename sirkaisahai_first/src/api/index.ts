@@ -9,6 +9,29 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
+const DEFAULT_CACHE_TTL_MS = 30_000;
+const STATIC_CACHE_TTL_MS = 300_000;
+
+interface CacheEntry<T> {
+  expiresAt: number;
+  data: T;
+}
+
+const responseCache = new Map<string, CacheEntry<unknown>>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+function invalidateCache(prefixes?: string[]) {
+  if (!prefixes || prefixes.length === 0) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    if (prefixes.some((p) => key.startsWith(p))) {
+      responseCache.delete(key);
+    }
+  }
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -27,24 +50,57 @@ async function parseJsonSafe(res: Response): Promise<Record<string, any>> {
   }
 }
 
-// Helper for safe GET fetch with fallback to local mock data if server isn't running yet
-async function fetchWithFallback<T>(url: string, options?: RequestInit, fallbackData?: T): Promise<T> {
+// Helper for safe GET fetch with short-TTL cache, in-flight deduplication, and fallback
+async function fetchWithFallback<T>(
+  url: string,
+  options?: RequestInit,
+  fallbackData?: T,
+  cacheTtlMs: number = DEFAULT_CACHE_TTL_MS
+): Promise<T> {
+  const isGet = !options?.method || options.method.toUpperCase() === 'GET';
+  if (isGet && cacheTtlMs > 0) {
+    const cached = responseCache.get(url);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data as T;
+    }
+    const existing = inFlightRequests.get(url);
+    if (existing) {
+      return existing as Promise<T>;
+    }
+  }
+
   const fetchOptions: RequestInit = {
     ...options,
     credentials: 'include'
   };
-  try {
-    const res = await fetch(url, fetchOptions);
-    if (!res.ok) {
-      throw new ApiError(`HTTP error ${res.status}`, res.status);
+
+  const promise = (async () => {
+    try {
+      const res = await fetch(url, fetchOptions);
+      if (!res.ok) {
+        throw new ApiError(`HTTP error ${res.status}`, res.status);
+      }
+      const data = (await res.json()) as T;
+      if (isGet && cacheTtlMs > 0) {
+        responseCache.set(url, { data, expiresAt: Date.now() + cacheTtlMs });
+      }
+      return data;
+    } catch (err) {
+      if (fallbackData !== undefined) {
+        return fallbackData;
+      }
+      throw err;
+    } finally {
+      if (isGet) {
+        inFlightRequests.delete(url);
+      }
     }
-    return await res.json();
-  } catch (err) {
-    if (fallbackData !== undefined) {
-      return fallbackData;
-    }
-    throw err;
+  })();
+
+  if (isGet && cacheTtlMs > 0) {
+    inFlightRequests.set(url, promise);
   }
+  return promise;
 }
 
 export const api = {
@@ -53,9 +109,14 @@ export const api = {
     return Promise.resolve(mockUniversity);
   },
 
-  // Get list of departments
+  // Get list of departments (cached 5 minutes — static campus list)
   async getDepartments(): Promise<Department[]> {
-    return fetchWithFallback<Department[]>(`${API_BASE}/departments`, undefined, mockDepartments);
+    return fetchWithFallback<Department[]>(
+      `${API_BASE}/departments`,
+      undefined,
+      mockDepartments,
+      STATIC_CACHE_TTL_MS
+    );
   },
 
   // Search across professors
@@ -85,11 +146,9 @@ export const api = {
       }
     });
 
-    return fetchWithFallback<SearchResultItem[]>(
-      `${API_BASE}/professors/search/all?${params.toString()}`,
-      undefined,
-      fallbackResults
-    );
+    const qs = params.toString();
+    const url = qs ? `${API_BASE}/professors/search/all?${qs}` : `${API_BASE}/professors/search/all`;
+    return fetchWithFallback<SearchResultItem[]>(url, undefined, fallbackResults);
   },
 
   // Get Professor details by ID
@@ -110,6 +169,7 @@ export const api = {
       const errData = await parseJsonSafe(res);
       throw new ApiError(errData.detail || errData.message || 'Failed to add professor', res.status);
     }
+    invalidateCache([`${API_BASE}/professors`]);
     return await res.json();
   },
 
@@ -168,6 +228,7 @@ export const api = {
       const errData = await parseJsonSafe(res);
       throw new ApiError(errData.detail || errData.message || 'Failed to submit review', res.status);
     }
+    invalidateCache([`${API_BASE}/reviews`, `${API_BASE}/professors`]);
     return await res.json();
   },
 
@@ -181,6 +242,7 @@ export const api = {
     if (!res.ok) {
       throw new ApiError(data.detail || data.message || 'Failed to vote', res.status);
     }
+    invalidateCache([`${API_BASE}/reviews`]);
     return data as { success: boolean; voted: boolean; newCount: number };
   },
 
@@ -194,6 +256,7 @@ export const api = {
     if (!res.ok) {
       throw new ApiError(data.detail || data.message || 'Failed to remove vote', res.status);
     }
+    invalidateCache([`${API_BASE}/reviews`]);
     return data as { success: boolean; voted: boolean; newCount: number };
   },
 
@@ -232,6 +295,7 @@ export const api = {
         message: data.message || data.detail || 'Verification failed. Please try again.'
       };
     }
+    invalidateCache([`${API_BASE}/reviews`]);
     return {
       success: Boolean(data.success),
       message: data.message || data.detail,
@@ -259,6 +323,7 @@ export const api = {
         method: 'POST',
         credentials: 'include'
       });
+      invalidateCache([`${API_BASE}/reviews`]);
       return await res.json();
     } catch {
       return { success: false };

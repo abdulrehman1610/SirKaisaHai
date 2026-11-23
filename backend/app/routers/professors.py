@@ -1,10 +1,12 @@
 import json
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.cache import professors_cache
+from app.database import get_db, get_read_db
 from app.dependencies import get_current_user
 from app.limiter import limiter, user_or_ip_key
 from app.models import Department, Professor, Review, TeacherCreationLog, VerifiedUser
@@ -14,38 +16,91 @@ from app.services.identity import normalize_teacher_name
 router = APIRouter(prefix="/professors", tags=["Professors / Teachers"])
 
 
-def build_professor_out(prof: Professor, db: Session) -> ProfessorOut:
-    reviews = db.query(Review).filter(Review.professor_id == prof.id).all()
-    total_reviews = len(reviews)
-
+def _row_to_professor_out(
+    prof: Professor,
+    dept_name: Optional[str],
+    total_reviews: int,
+    avg_teaching: Optional[float],
+    avg_grading: Optional[float],
+    avg_workload: Optional[float],
+    overall_rating: Optional[float],
+) -> ProfessorOut:
     if total_reviews > 0:
-        avg_teaching = round(sum(r.rating_teaching for r in reviews) / total_reviews, 1)
-        avg_grading = round(sum(r.rating_grading for r in reviews) / total_reviews, 1)
-        avg_workload = round(sum(r.rating_workload for r in reviews) / total_reviews, 1)
-        overall_rating = round(sum(r.overall_score for r in reviews) / total_reviews, 1)
+        t_avg = round(float(avg_teaching or 0.0), 1)
+        g_avg = round(float(avg_grading or 0.0), 1)
+        w_avg = round(float(avg_workload or 0.0), 1)
+        o_avg = round(float(overall_rating or 0.0), 1)
     else:
-        avg_teaching = 5.0
-        avg_grading = 5.0
-        avg_workload = 3.0
-        overall_rating = 5.0
+        t_avg = 5.0
+        g_avg = 5.0
+        w_avg = 3.0
+        o_avg = 5.0
 
     tags = json.loads(prof.tags_json) if prof.tags_json else []
 
     return ProfessorOut(
         id=prof.id,
         departmentId=prof.department_id,
-        departmentName=prof.department.name if prof.department else "Department",
+        departmentName=dept_name or "Department",
         name=prof.name,
         title=prof.title,
         avatarUrl=prof.avatar_url,
-        avgTeaching=avg_teaching,
-        avgGrading=avg_grading,
-        avgWorkload=avg_workload,
-        overallRating=overall_rating,
-        totalReviews=total_reviews,
+        avgTeaching=t_avg,
+        avgGrading=g_avg,
+        avgWorkload=w_avg,
+        overallRating=o_avg,
+        totalReviews=int(total_reviews),
         aiSummary=prof.ai_summary,
         tags=tags,
     )
+
+
+def _query_professors_aggregated(
+    db: Session,
+    department_id: Optional[str] = None,
+    q: Optional[str] = None,
+    prof_id: Optional[str] = None,
+) -> List[ProfessorOut]:
+    """Single SQL LEFT JOIN + GROUP BY query — eliminates N+1 review & department queries."""
+    query = (
+        db.query(
+            Professor,
+            Department.name.label("dept_name"),
+            func.count(Review.id).label("total_reviews"),
+            func.avg(Review.rating_teaching).label("avg_teaching"),
+            func.avg(Review.rating_grading).label("avg_grading"),
+            func.avg(Review.rating_workload).label("avg_workload"),
+            func.avg(Review.overall_score).label("overall_rating"),
+        )
+        .join(Department, Professor.department_id == Department.id)
+        .outerjoin(Review, Review.professor_id == Professor.id)
+    )
+
+    if prof_id:
+        query = query.filter(Professor.id == prof_id)
+
+    if department_id and department_id != "all":
+        query = query.filter(Professor.department_id == department_id)
+
+    if q and q.strip():
+        search = f"%{q.strip().lower()}%"
+        query = query.filter(
+            (Professor.name.ilike(search)) | (Professor.title.ilike(search))
+        )
+
+    rows = query.group_by(Professor.id, Department.name).all()
+    return [
+        _row_to_professor_out(
+            prof=row[0],
+            dept_name=row[1],
+            total_reviews=row[2] or 0,
+            avg_teaching=row[3],
+            avg_grading=row[4],
+            avg_workload=row[5],
+            overall_rating=row[6],
+        )
+        for row in rows
+    ]
 
 
 def _raise_duplicate_professor(existing: Professor, db: Session) -> None:
@@ -64,21 +119,14 @@ def _raise_duplicate_professor(existing: Professor, db: Session) -> None:
 def get_professors(
     departmentId: Optional[str] = None,
     q: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_read_db),
 ):
-    query = db.query(Professor)
-
-    if departmentId and departmentId != "all":
-        query = query.filter(Professor.department_id == departmentId)
-
-    if q:
-        search = f"%{q.strip().lower()}%"
-        query = query.filter(
-            (Professor.name.ilike(search)) | (Professor.title.ilike(search))
-        )
-
-    profs = query.all()
-    return [build_professor_out(p, db) for p in profs]
+    cache_key = f"list:{departmentId or 'all'}:{(q or '').strip().lower()}"
+    return professors_cache.get_or_set(
+        db,
+        cache_key,
+        lambda: _query_professors_aggregated(db, department_id=departmentId, q=q),
+    )
 
 
 @router.post("", response_model=ProfessorOut)
@@ -137,50 +185,51 @@ def create_professor(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher already exists.")
 
     db.refresh(new_prof)
-    return build_professor_out(new_prof, db)
+    professors_cache.invalidate_all(db)
+    return _row_to_professor_out(
+        prof=new_prof,
+        dept_name=dept.name,
+        total_reviews=0,
+        avg_teaching=None,
+        avg_grading=None,
+        avg_workload=None,
+        overall_rating=None,
+    )
 
 
 @router.get("/search/all", response_model=List[SearchResultItem])
 def search_catalog(
     q: Optional[str] = Query(default=""),
     departmentId: Optional[str] = Query(default="all"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_read_db),
 ):
-    query = db.query(Professor)
+    cache_key = f"search:{departmentId or 'all'}:{(q or '').strip().lower()}"
 
-    if departmentId and departmentId != "all":
-        query = query.filter(Professor.department_id == departmentId)
-
-    if q and q.strip():
-        search = f"%{q.strip().lower()}%"
-        query = query.filter(
-            (Professor.name.ilike(search)) | (Professor.title.ilike(search))
-        )
-
-    profs = query.all()
-    results = []
-
-    for p in profs:
-        prof_dto = build_professor_out(p, db)
-        results.append(
+    def _load() -> List[SearchResultItem]:
+        prof_dtos = _query_professors_aggregated(db, department_id=departmentId, q=q)
+        return [
             SearchResultItem(
                 id=p.id,
                 type="professor",
                 title=p.name,
                 subtitle=p.title,
-                department=prof_dto.departmentName,
-                rating=prof_dto.overallRating,
-                reviewCount=prof_dto.totalReviews,
+                department=p.departmentName,
+                rating=p.overallRating,
+                reviewCount=p.totalReviews,
                 url=f"/professor/{p.id}",
             )
-        )
+            for p in prof_dtos
+        ]
 
-    return results
+    return professors_cache.get_or_set(db, cache_key, _load)
 
 
 @router.get("/{prof_id}", response_model=ProfessorOut)
-def get_professor_by_id(prof_id: str, db: Session = Depends(get_db)):
-    prof = db.query(Professor).filter(Professor.id == prof_id).first()
-    if not prof:
-        raise HTTPException(status_code=404, detail="Professor not found")
-    return build_professor_out(prof, db)
+def get_professor_by_id(prof_id: str, db: Session = Depends(get_read_db)):
+    def _load() -> ProfessorOut:
+        results = _query_professors_aggregated(db, prof_id=prof_id)
+        if not results:
+            raise HTTPException(status_code=404, detail="Professor not found")
+        return results[0]
+
+    return professors_cache.get_or_set(db, f"id:{prof_id}", _load)

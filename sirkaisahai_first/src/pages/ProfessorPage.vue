@@ -76,10 +76,13 @@ const workloadDescriptor = computed(() => {
 async function loadProfessor() {
   isLoading.value = true;
   try {
-    const profData = await api.getProfessorById(profId.value);
+    const [profData, profReviews] = await Promise.all([
+      api.getProfessorById(profId.value),
+      api.getReviewsForProfessor(profId.value)
+    ]);
     if (profData) {
       professor.value = profData;
-      reviews.value = await api.getReviewsForProfessor(profId.value);
+      reviews.value = profReviews;
     } else {
       professor.value = null;
       reviews.value = [];

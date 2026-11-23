@@ -29,16 +29,17 @@ onMounted(async () => {
   }, 3000);
 
   try {
-    const [profs, realReviews] = await Promise.all([api.search(''), api.getRecentReviews()]);
+    const [profs, realReviews] = await Promise.all([
+      api.getProfessorsList(),
+      api.getRecentReviews()
+    ]);
     reviewsList.value = realReviews;
 
     if (profs.length > 0) {
-      const sorted = [...profs].sort((a, b) => b.rating - a.rating);
-      const topProfId = sorted[0]?.id;
-      if (topProfId) {
-        const topProf = await api.getProfessorById(topProfId);
-        if (topProf) featuredProf.value = topProf;
-      }
+      const sorted = [...profs].sort(
+        (a, b) => b.overallRating - a.overallRating || b.totalReviews - a.totalReviews
+      );
+      featuredProf.value = sorted[0] || null;
     }
   } finally {
     isLoading.value = false;

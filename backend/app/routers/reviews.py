@@ -2,9 +2,10 @@ from typing import List, Optional, Set
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import case, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.database import get_db
+from app.cache import professors_cache, reviews_cache
+from app.database import get_db, get_read_db
 from app.dependencies import get_current_user, get_current_user_optional
 from app.limiter import limiter, user_or_ip_key
 from app.models import Professor, Review, ReviewVote, TeacherSubmissionLog, VerifiedUser
@@ -15,13 +16,22 @@ from app.services.profanity import check_profanity
 router = APIRouter(prefix="/reviews", tags=["Teacher Reviews"])
 
 
-def build_review_out(rev: Review, is_voted: bool = False) -> ReviewOut:
+def build_review_out(
+    rev: Review,
+    is_voted: bool = False,
+    professor_name: Optional[str] = None,
+) -> ReviewOut:
     # Truncate createdAt to minute precision to prevent sub-minute timing correlation
     created_minute = rev.created_at.replace(second=0, microsecond=0).isoformat()
+    resolved_prof_name = (
+        professor_name
+        if professor_name is not None
+        else (rev.professor.name if rev.professor else "Professor")
+    )
     return ReviewOut(
         id=rev.id,
         professorId=rev.professor_id,
-        professorName=rev.professor.name if rev.professor else "Professor",
+        professorName=resolved_prof_name,
         courseCode=rev.course_code,
         courseTitle=rev.course_title,
         ratingTeaching=rev.rating_teaching,
@@ -41,26 +51,38 @@ def build_review_out(rev: Review, is_voted: bool = False) -> ReviewOut:
 def get_reviews(
     professorId: Optional[str] = Query(default=None),
     user: Optional[VerifiedUser] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_read_db),
 ):
-    query = db.query(Review)
+    def _load_public_reviews() -> List[ReviewOut]:
+        query = db.query(Review).options(joinedload(Review.professor))
+        if professorId:
+            query = query.filter(Review.professor_id == professorId)
+        rows = query.order_by(Review.created_at.desc()).all()
+        return [build_review_out(r, is_voted=False) for r in rows]
 
-    if professorId:
-        query = query.filter(Review.professor_id == professorId)
+    base_reviews = reviews_cache.get_or_set(
+        db,
+        f"list:{professorId or 'all'}",
+        _load_public_reviews,
+    )
 
-    reviews = query.order_by(Review.created_at.desc()).all()
+    if not user or not base_reviews:
+        return base_reviews
 
-    voted_review_ids: Set[str] = set()
-    if user and reviews:
-        voter_keys = [compute_voter_key(user.id, rev.id) for rev in reviews]
-        voted_rows = (
-            db.query(ReviewVote.review_id)
-            .filter(ReviewVote.voter_key.in_(voter_keys))
-            .all()
-        )
-        voted_review_ids = {row[0] for row in voted_rows}
+    voter_keys = [compute_voter_key(user.id, rev.id) for rev in base_reviews]
+    voted_rows = (
+        db.query(ReviewVote.review_id)
+        .filter(ReviewVote.voter_key.in_(voter_keys))
+        .all()
+    )
+    voted_review_ids: Set[str] = {row[0] for row in voted_rows}
+    if not voted_review_ids:
+        return base_reviews
 
-    return [build_review_out(r, is_voted=(r.id in voted_review_ids)) for r in reviews]
+    return [
+        r.model_copy(update={"isHelpfulVoted": True}) if r.id in voted_review_ids else r
+        for r in base_reviews
+    ]
 
 
 @router.post("", response_model=ReviewOut)
@@ -122,7 +144,9 @@ def submit_review(
         )
 
     db.refresh(new_review)
-    return build_review_out(new_review)
+    reviews_cache.invalidate_all(db)
+    professors_cache.invalidate_all(db)
+    return build_review_out(new_review, professor_name=prof.name)
 
 
 @router.post("/{review_id}/vote", response_model=VoteResponse)
@@ -147,6 +171,7 @@ def vote_helpful(
             .values(helpful_count=Review.helpful_count + 1)
         )
         db.commit()
+        reviews_cache.invalidate_all(db)
     except IntegrityError:
         # Idempotent: student already voted helpful on this review
         db.rollback()
@@ -185,6 +210,8 @@ def unvote_helpful(
             )
         )
     db.commit()
+    if deleted:
+        reviews_cache.invalidate_all(db)
 
     current_count = db.query(Review.helpful_count).filter(Review.id == review_id).scalar() or 0
     return VoteResponse(success=True, voted=False, newCount=current_count)
