@@ -1,20 +1,18 @@
 import json
-import re
-from fastapi import APIRouter, Depends, HTTPException, Query, Header, Request
-from sqlalchemy.orm import Session
 from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
 from app.database import get_db
-from app.models import Professor, Review, Department, TeacherCreationLog, VerifiedUser
-from app.schemas import ProfessorOut, ProfessorCreate, SearchResultItem
+from app.dependencies import get_current_user
+from app.limiter import limiter, user_or_ip_key
+from app.models import Department, Professor, Review, TeacherCreationLog, VerifiedUser
+from app.schemas import ProfessorCreate, ProfessorOut, SearchResultItem
+from app.services.identity import normalize_teacher_name
 
 router = APIRouter(prefix="/professors", tags=["Professors / Teachers"])
 
-def normalize_teacher_name(name: str) -> str:
-    """Removes honorific prefixes (Dr., Prof., Engr., Sir, etc.) to get core first+last name"""
-    cleaned = name.strip().lower()
-    pattern = r'^(dr|prof|engr|sir|ma\'am|maam|mr|mrs|ms|doctor|professor)[\.\s]+'
-    cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE).strip()
-    return cleaned
 
 def build_professor_out(prof: Professor, db: Session) -> ProfessorOut:
     reviews = db.query(Review).filter(Review.professor_id == prof.id).all()
@@ -46,14 +44,27 @@ def build_professor_out(prof: Professor, db: Session) -> ProfessorOut:
         overallRating=overall_rating,
         totalReviews=total_reviews,
         aiSummary=prof.ai_summary,
-        tags=tags
+        tags=tags,
     )
+
+
+def _raise_duplicate_professor(existing: Professor, db: Session) -> None:
+    existing_dept = db.query(Department).filter(Department.id == existing.department_id).first()
+    dept_label = existing_dept.name if existing_dept else "another department"
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            f"A teacher with the name '{existing.name}' already exists in the {dept_label} department "
+            f"(id: {existing.id})."
+        ),
+    )
+
 
 @router.get("", response_model=List[ProfessorOut])
 def get_professors(
     departmentId: Optional[str] = None,
     q: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     query = db.query(Professor)
 
@@ -63,19 +74,20 @@ def get_professors(
     if q:
         search = f"%{q.strip().lower()}%"
         query = query.filter(
-            (Professor.name.ilike(search)) |
-            (Professor.title.ilike(search))
+            (Professor.name.ilike(search)) | (Professor.title.ilike(search))
         )
 
     profs = query.all()
     return [build_professor_out(p, db) for p in profs]
 
+
 @router.post("", response_model=ProfessorOut)
+@limiter.limit("5/day", key_func=user_or_ip_key)
 def create_professor(
     request: Request,
     payload: ProfessorCreate,
-    authorization: Optional[str] = Header(default=None),
-    db: Session = Depends(get_db)
+    user: VerifiedUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     dept = db.query(Department).filter(Department.id == payload.departmentId).first()
     if not dept:
@@ -83,63 +95,56 @@ def create_professor(
 
     raw_name = payload.name.strip()
     norm_new_name = normalize_teacher_name(raw_name)
+    if len(norm_new_name) < 2:
+        raise HTTPException(status_code=400, detail="Please enter the professor's full name.")
 
-    # Check duplicate teacher name across ALL departments (university-wide)
-    all_profs = db.query(Professor).all()
-
-    for p in all_profs:
-        if normalize_teacher_name(p.name) == norm_new_name:
-            existing_dept = db.query(Department).filter(Department.id == p.department_id).first()
-            dept_label = existing_dept.name if existing_dept else "another department"
-            raise HTTPException(
-                status_code=400,
-                detail=f"A teacher with the name '{p.name}' already exists in the {dept_label} department."
-            )
-
-    # Resolve the authenticated user from session cookie
-    user = None
-    cookie_name = "skh_session"
-    token = request.cookies.get(cookie_name)
-    if token and token.startswith("skh-session-"):
-        user = db.query(VerifiedUser).filter(VerifiedUser.session_token == token).first()
-
-    if not user:
-        raise HTTPException(
-            status_code=401, 
-            detail="You must be verified and logged in to add a new teacher to the catalog."
-        )
+    # Fast indexed university-wide duplicate check
+    existing = db.query(Professor).filter(Professor.normalized_name == norm_new_name).first()
+    if existing:
+        _raise_duplicate_professor(existing, db)
 
     tags = payload.tags if payload.tags else ["New Faculty"]
     new_prof = Professor(
         department_id=payload.departmentId,
         name=raw_name,
+        normalized_name=norm_new_name,
         title=payload.title or "Lecturer",
         tags_json=json.dumps(tags),
         ai_summary=f"{raw_name} is a faculty member in the {dept.name} department.",
-        created_by_user_id=user.id if user else None
+        created_by_user_id=user.id,
     )
 
-    db.add(new_prof)
-    db.commit()
+    try:
+        db.add(new_prof)
+        db.flush()
+
+        # Audit log tracks only verified user_id (never plaintext email)
+        db.add(
+            TeacherCreationLog(
+                professor_id=new_prof.id,
+                teacher_name=raw_name,
+                user_id=user.id,
+            )
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing_after_race = (
+            db.query(Professor).filter(Professor.normalized_name == norm_new_name).first()
+        )
+        if existing_after_race:
+            _raise_duplicate_professor(existing_after_race, db)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Teacher already exists.")
+
     db.refresh(new_prof)
-
-    # AUDIT LOG: Record teacher creation event with verified user_id
-    log = TeacherCreationLog(
-        professor_id=new_prof.id,
-        teacher_name=raw_name,
-        user_id=user.id if user else None,
-        user_email=payload.userEmail  # May be null — that's fine, user_id is the reliable link
-    )
-    db.add(log)
-    db.commit()
-
     return build_professor_out(new_prof, db)
+
 
 @router.get("/search/all", response_model=List[SearchResultItem])
 def search_catalog(
     q: Optional[str] = Query(default=""),
     departmentId: Optional[str] = Query(default="all"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     query = db.query(Professor)
 
@@ -149,8 +154,7 @@ def search_catalog(
     if q and q.strip():
         search = f"%{q.strip().lower()}%"
         query = query.filter(
-            (Professor.name.ilike(search)) |
-            (Professor.title.ilike(search))
+            (Professor.name.ilike(search)) | (Professor.title.ilike(search))
         )
 
     profs = query.all()
@@ -167,11 +171,12 @@ def search_catalog(
                 department=prof_dto.departmentName,
                 rating=prof_dto.overallRating,
                 reviewCount=prof_dto.totalReviews,
-                url=f"/professor/{p.id}"
+                url=f"/professor/{p.id}",
             )
         )
 
     return results
+
 
 @router.get("/{prof_id}", response_model=ProfessorOut)
 def get_professor_by_id(prof_id: str, db: Session = Depends(get_db)):

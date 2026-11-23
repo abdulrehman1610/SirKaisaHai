@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import type { Review } from '../../types';
 import RatingBadge from './RatingBadge.vue';
-import { api } from '../../api';
+import { api, ApiError } from '../../api';
+import { useAuthStore } from '../../stores/auth';
 
 const props = withDefaults(
   defineProps<{
@@ -14,18 +16,42 @@ const props = withDefaults(
   }
 );
 
+const router = useRouter();
+const route = useRoute();
+const authStore = useAuthStore();
+
 const isHelpful = ref(props.review.isHelpfulVoted || false);
 const helpfulCount = ref(props.review.helpfulCount);
 const isVoting = ref(false);
 
+watch(
+  () => props.review,
+  (next) => {
+    isHelpful.value = next.isHelpfulVoted || false;
+    helpfulCount.value = next.helpfulCount;
+  }
+);
+
 async function toggleHelpful() {
-  if (isVoting.value || isHelpful.value) return;
+  if (isVoting.value) return;
+  if (!authStore.isVerified) {
+    router.push({ path: '/auth', query: { redirect: route.fullPath } });
+    return;
+  }
+
   isVoting.value = true;
   try {
-    const res = await api.voteHelpful(props.review.id);
+    const res = isHelpful.value
+      ? await api.unvoteHelpful(props.review.id)
+      : await api.voteHelpful(props.review.id);
     if (res.success) {
-      isHelpful.value = true;
+      isHelpful.value = res.voted;
       helpfulCount.value = res.newCount;
+    }
+  } catch (err: unknown) {
+    if (err instanceof ApiError && err.status === 401) {
+      authStore.clearLocalSession();
+      router.push({ path: '/auth', query: { redirect: route.fullPath } });
     }
   } finally {
     isVoting.value = false;
@@ -136,11 +162,11 @@ function formatDate(iso: string) {
         class="px-3.5 py-1.5 font-mono text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer tabular-nums rounded-full transition-colors"
         :class="
           isHelpful
-            ? 'bg-primary text-on-primary cursor-default'
+            ? 'bg-primary text-on-primary hover:bg-primary-hover'
             : 'bg-surface-recessed text-ink-muted hover:text-primary hover:bg-primary-soft'
         "
         @click="toggleHelpful"
-        :disabled="isVoting || isHelpful"
+        :disabled="isVoting"
       >
         <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5" aria-hidden="true">
           <path

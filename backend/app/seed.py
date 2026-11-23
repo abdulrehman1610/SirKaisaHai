@@ -1,8 +1,21 @@
-import json
+import argparse
+import sys
+from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import text
-from app.database import SessionLocal, engine, Base
-from app.models import University, Department, Professor, Review, VerifiedUser, TeacherCreationLog, TeacherSubmissionLog, ReviewVote
+
+from app.config import settings
+from app.database import SessionLocal
+from app.models import (
+    AuthAttempt,
+    Department,
+    OTPChallenge,
+    Professor,
+    Review,
+    ReviewVote,
+    TeacherCreationLog,
+    TeacherSubmissionLog,
+    University,
+)
 
 # The 8 Official Computing Departments of Superior University
 OFFICIAL_DEPARTMENTS = [
@@ -16,72 +29,124 @@ OFFICIAL_DEPARTMENTS = [
     {"id": "dept-gd", "name": "Game Design", "code": "GD"},
 ]
 
-def reset_and_seed_database():
-    """Completely wipes tables and seeds the official Superior University departments."""
-    Base.metadata.create_all(bind=engine)
-    db: Session = SessionLocal()
+SUPERIOR_UNIVERSITY = {
+    "id": "uni-superior",
+    "name": "Superior University",
+    "short_name": "Superior",
+    "domain": "superior.edu.pk",
+    "logo_url": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=100&auto=format&fit=crop&q=80",
+}
+
+
+def upsert_reference_data(db: Optional[Session] = None) -> None:
+    """
+    Idempotently inserts or updates Superior University and its 8 official Computing departments.
+    NEVER deletes professors, reviews, users, or logs.
+    """
+    owns_session = db is None
+    session = db if db is not None else SessionLocal()
 
     try:
-        print("\n[DB RESET] Clearing all old reviews, teachers, logs, and departments...")
-        
-        # 1. Delete dependent tables first
-        db.query(ReviewVote).delete()
-        db.query(Review).delete()
-        db.query(TeacherCreationLog).delete()
-        db.query(TeacherSubmissionLog).delete()
-        db.query(Professor).delete()
-        db.query(Department).delete()
-        db.query(University).delete()
-        db.commit()
+        uni = session.query(University).filter(University.id == SUPERIOR_UNIVERSITY["id"]).first()
+        if uni is None:
+            session.add(University(**SUPERIOR_UNIVERSITY))
+        else:
+            uni.name = SUPERIOR_UNIVERSITY["name"]
+            uni.short_name = SUPERIOR_UNIVERSITY["short_name"]
+            uni.domain = SUPERIOR_UNIVERSITY["domain"]
+            uni.logo_url = SUPERIOR_UNIVERSITY["logo_url"]
+        session.flush()
 
-        print("[DB SEED] Creating University & Official Departments...")
+        for dept_data in OFFICIAL_DEPARTMENTS:
+            dept = session.query(Department).filter(Department.id == dept_data["id"]).first()
+            if dept is None:
+                session.add(
+                    Department(
+                        id=dept_data["id"],
+                        university_id=SUPERIOR_UNIVERSITY["id"],
+                        name=dept_data["name"],
+                        code=dept_data["code"],
+                    )
+                )
+            else:
+                dept.university_id = SUPERIOR_UNIVERSITY["id"]
+                dept.name = dept_data["name"]
+                dept.code = dept_data["code"]
 
-        # 2. Add Superior University
-        uni = University(
-            id="uni-superior",
-            name="Superior University",
-            short_name="Superior",
-            domain="superior.edu.pk",
-            logo_url="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=100&auto=format&fit=crop&q=80"
-        )
-        db.add(uni)
-
-        # 3. Add the 7 Official Departments
-        for d in OFFICIAL_DEPARTMENTS:
-            dept = Department(
-                id=d["id"],
-                university_id="uni-superior",
-                name=d["name"],
-                code=d["code"]
-            )
-            db.add(dept)
-
-        db.commit()
-        print("[SUCCESS] Database reset cleanly! 8 official departments seeded successfully:")
-        for d in OFFICIAL_DEPARTMENTS:
-            print(f"  ✓ {d['name']} ({d['code']})")
-        print("\nAll temporary faculty and test reviews have been cleared. Ready for real data!\n")
-    except Exception as e:
-        db.rollback()
-        print(f"[ERROR] Failed to reset and seed database: {e}")
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
-        db.close()
+        if owns_session:
+            session.close()
 
-def seed_database():
-    """Auto-seed and ensure the official 7 departments are active."""
-    Base.metadata.create_all(bind=engine)
-    db: Session = SessionLocal()
+
+def seed_database(db: Optional[Session] = None) -> None:
+    """Safe alias for upsert_reference_data()."""
+    upsert_reference_data(db=db)
+
+
+def reset_and_seed_database(confirm: bool = False, db: Optional[Session] = None) -> None:
+    """
+    Explicit destructive reset for local development only.
+    Refuses to run when ENVIRONMENT=production or without confirm=True.
+    """
+    if settings.is_production:
+        raise RuntimeError("Refusing to reset database when ENVIRONMENT=production.")
+    if not confirm:
+        raise RuntimeError("Destructive reset requires explicit confirmation (confirm=True / --confirm).")
+
+    owns_session = db is None
+    session = db if db is not None else SessionLocal()
+
     try:
-        # Check if the new Game Design department exists
-        has_new_depts = db.query(Department).filter(Department.id == "dept-gd").first()
-        if has_new_depts:
-            return
+        session.query(OTPChallenge).delete()
+        session.query(AuthAttempt).delete()
+        session.query(ReviewVote).delete()
+        session.query(Review).delete()
+        session.query(TeacherCreationLog).delete()
+        session.query(TeacherSubmissionLog).delete()
+        session.query(Professor).delete()
+        session.query(Department).delete()
+        session.query(University).delete()
+        session.commit()
 
-        reset_and_seed_database()
-    except Exception as e:
-        print(f"[Seed Note] Check: {e}")
+        upsert_reference_data(db=session)
+    except Exception:
+        session.rollback()
+        raise
     finally:
-        db.close()
+        if owns_session:
+            session.close()
+
+
+def main(argv: Optional[list] = None) -> int:
+    parser = argparse.ArgumentParser(description="Seed SirKaisaHai reference data.")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Wipe all data before seeding (blocked in production; requires --confirm).",
+    )
+    parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Confirm destructive --reset operation.",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        if args.reset:
+            reset_and_seed_database(confirm=args.confirm)
+            print("[SUCCESS] Database wiped and reference data re-seeded.")
+        else:
+            upsert_reference_data()
+            print("[SUCCESS] Reference data upserted safely (1 university, 8 departments).")
+        return 0
+    except RuntimeError as err:
+        print(f"[ERROR] {err}", file=sys.stderr)
+        return 1
+
 
 if __name__ == "__main__":
-    reset_and_seed_database()
+    raise SystemExit(main())

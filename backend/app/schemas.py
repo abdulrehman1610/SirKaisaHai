@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import datetime
+from pydantic import BaseModel, Field
+
 
 # University Schemas
 class UniversityOut(BaseModel):
@@ -13,6 +13,7 @@ class UniversityOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 # Department Schemas
 class DepartmentOut(BaseModel):
     id: str
@@ -23,13 +24,16 @@ class DepartmentOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 # Professor (Teacher) Schemas
 class ProfessorCreate(BaseModel):
     name: str = Field(..., min_length=3)
     departmentId: str
     title: Optional[str] = "Lecturer"
     tags: Optional[List[str]] = ["New Faculty"]
+    # Deprecated: accepted for backward compatibility only; ignored by backend
     userEmail: Optional[str] = None
+
 
 class ProfessorOut(BaseModel):
     id: str
@@ -49,6 +53,7 @@ class ProfessorOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 # Review Schemas
 class ReviewCreate(BaseModel):
     professorId: str
@@ -60,7 +65,9 @@ class ReviewCreate(BaseModel):
     comment: str = Field(..., min_length=5, max_length=500)
     gradeReceived: Optional[str] = "A"
     semesterTaken: Optional[str] = "Fall 2025"
+    # Deprecated: accepted for backward compatibility only; ignored by backend
     userEmail: Optional[str] = None
+
 
 class ReviewOut(BaseModel):
     id: str
@@ -82,6 +89,13 @@ class ReviewOut(BaseModel):
     class Config:
         from_attributes = True
 
+
+class VoteResponse(BaseModel):
+    success: bool
+    voted: bool
+    newCount: int
+
+
 # Search Result Schema
 class SearchResultItem(BaseModel):
     id: str
@@ -93,13 +107,16 @@ class SearchResultItem(BaseModel):
     reviewCount: int
     url: str
 
+
 # Auth Schemas
 class OTPRequest(BaseModel):
     email: str
 
+
 class OTPVerify(BaseModel):
     email: str
     code: str
+
 
 class AuthResponse(BaseModel):
     success: bool

@@ -1,8 +1,11 @@
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Optional
+
 from app.config import settings
+from app.services.identity import mask_email
+
 
 def _get_alias_email(tag: Optional[str] = None) -> str:
     """
@@ -12,19 +15,27 @@ def _get_alias_email(tag: Optional[str] = None) -> str:
     base_email = settings.SMTP_USER or settings.SMTP_SENDER_EMAIL or "sirkaisahai@gmail.com"
     if not tag or "@" not in base_email:
         return base_email
-    
+
     user_part, domain = base_email.split("@", 1)
-    # Remove existing alias if any
     user_clean = user_part.split("+")[0]
     return f"{user_clean}+{tag}@{domain}"
 
-def _send_smtp_email(to_email: str, subject: str, html_body: str, sender_display_name: str, alias_tag: Optional[str] = None) -> bool:
-    """Core SMTP dispatcher using TLS"""
+
+def _send_smtp_email(
+    to_email: str,
+    subject: str,
+    html_body: str,
+    sender_display_name: str,
+    alias_tag: Optional[str] = None,
+) -> bool:
+    """Core SMTP dispatcher using TLS. Never logs plaintext recipient email in production."""
     if not settings.SMTP_SERVER or not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        print("[Email Service] SMTP not configured in .env. Skipping email dispatch.")
+        if not settings.is_production:
+            print("[Email Service] SMTP not configured in .env. Skipping email dispatch.")
         return False
 
     sender_address = _get_alias_email(alias_tag)
+    safe_target = mask_email(to_email) if settings.is_production else to_email
 
     try:
         msg = MIMEMultipart("alternative")
@@ -39,16 +50,15 @@ def _send_smtp_email(to_email: str, subject: str, html_body: str, sender_display
             server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.sendmail(settings.SMTP_USER, [to_email], msg.as_string())
-        
-        print(f"[Email Service] Successfully sent email to {to_email} from {msg['From']}")
+
+        if not settings.is_production:
+            print(f"[Email Service] Successfully sent email to {safe_target} from {msg['From']}")
         return True
     except Exception as e:
-        print(f"[Email Service Error] Failed to send email to {to_email}: {e}")
+        print(f"[Email Service Error] Failed to send email to {safe_target}: {type(e).__name__}")
         return False
 
-# ==========================================
-# 1. OTP Verification Email
-# ==========================================
+
 def send_otp_email(to_email: str, otp_code: str) -> bool:
     subject = f"SirKaisaHai - Your Verification Code is {otp_code}"
     html = f"""
@@ -65,13 +75,13 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
             <p style="color: #50434B; font-size: 14px; line-height: 1.5; margin: 0;">
                 Use the verification code below to verify your student status and post anonymous reviews:
             </p>
-            
+
             <div style="background-color: #EFE5FA; padding: 18px; text-align: center; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #6B2FA0; margin: 18px 0; border: 1px dashed #6B2FA0;">
                 {otp_code}
             </div>
 
             <p style="color: #82737B; font-size: 12px; line-height: 1.4; margin: 0;">
-                ⏱️ This code will expire in <strong>10 minutes</strong>. For privacy, your email is never linked to the review text you post.
+                This code will expire in <strong>10 minutes</strong>. For privacy, your email is never linked to the review text you post.
             </p>
         </div>
 
@@ -85,12 +95,10 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
         subject=subject,
         html_body=html,
         sender_display_name="SirKaisaHai Verification",
-        alias_tag="otp"
+        alias_tag="otp",
     )
 
-# ==========================================
-# 2. System / Feature Update Email
-# ==========================================
+
 def send_update_email(to_email: str, update_title: str, update_content: str) -> bool:
     subject = f"SirKaisaHai Update: {update_title}"
     html = f"""
@@ -114,12 +122,10 @@ def send_update_email(to_email: str, update_title: str, update_content: str) -> 
         subject=subject,
         html_body=html,
         sender_display_name="SirKaisaHai Updates",
-        alias_tag="updates"
+        alias_tag="updates",
     )
 
-# ==========================================
-# 3. Campus News & Announcements Email
-# ==========================================
+
 def send_news_email(to_email: str, headline: str, news_html: str) -> bool:
     subject = f"Campus Bulletin: {headline}"
     html = f"""
@@ -143,5 +149,5 @@ def send_news_email(to_email: str, headline: str, news_html: str) -> bool:
         subject=subject,
         html_body=html,
         sender_display_name="SirKaisaHai News",
-        alias_tag="news"
+        alias_tag="news",
     )

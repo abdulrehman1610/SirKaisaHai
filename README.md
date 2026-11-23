@@ -103,7 +103,11 @@ pip install -r requirements.txt
 
 # Configure environment variables
 cp .env.example .env
-# Open .env and add your Supabase DATABASE_URL and SECRET_SALT
+# Open .env and set DATABASE_URL, EMAIL_HASH_SECRET, VOTE_SECRET, and ADMIN_SECRET_KEY
+
+# Run database migrations & safe reference seeding
+alembic upgrade head
+python -m app.seed
 
 # Start backend server
 uvicorn app.main:app --reload

@@ -2,7 +2,6 @@ import type { Professor, Course, Review, Department, SearchResultItem } from '..
 import {
   mockProfessors,
   mockCourses,
-  mockReviews,
   mockDepartments,
   mockOfferings,
   mockUniversity
@@ -10,16 +9,34 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
-// Helper for safe fetch with fallback to local mock data if server isn't running yet
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+async function parseJsonSafe(res: Response): Promise<Record<string, any>> {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+// Helper for safe GET fetch with fallback to local mock data if server isn't running yet
 async function fetchWithFallback<T>(url: string, options?: RequestInit, fallbackData?: T): Promise<T> {
   const fetchOptions: RequestInit = {
     ...options,
-    credentials: 'include' // SEND COOKIES
+    credentials: 'include'
   };
   try {
     const res = await fetch(url, fetchOptions);
     if (!res.ok) {
-      throw new Error(`HTTP error ${res.status}`);
+      throw new ApiError(`HTTP error ${res.status}`, res.status);
     }
     return await res.json();
   } catch (err) {
@@ -81,17 +98,17 @@ export const api = {
     return fetchWithFallback<Professor>(`${API_BASE}/professors/${id}`, undefined, fallback);
   },
 
-  // Add a new Teacher/Professor
-  async addProfessor(data: { name: string; departmentId: string; title?: string; tags?: string[]; userEmail?: string }): Promise<Professor> {
+  // Add a new Teacher/Professor (authenticated via httpOnly skh_session cookie)
+  async addProfessor(data: { name: string; departmentId: string; title?: string; tags?: string[] }): Promise<Professor> {
     const res = await fetch(`${API_BASE}/professors`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // SEND COOKIES
+      credentials: 'include',
       body: JSON.stringify(data)
     });
     if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.detail || 'Failed to add professor');
+      const errData = await parseJsonSafe(res);
+      throw new ApiError(errData.detail || errData.message || 'Failed to add professor', res.status);
     }
     return await res.json();
   },
@@ -112,7 +129,7 @@ export const api = {
   },
 
   // Get Reviews for Course
-  async getReviewsForCourse(courseId: string): Promise<Review[]> {
+  async getReviewsForCourse(_courseId: string): Promise<Review[]> {
     return fetchWithFallback<Review[]>(`${API_BASE}/reviews`, undefined, []);
   },
 
@@ -139,40 +156,45 @@ export const api = {
     return fetchWithFallback<Professor[]>(`${API_BASE}/professors`, undefined, mockProfessors);
   },
 
-  // Submit new review for teacher
-  async submitReview(data: Omit<Review, 'id' | 'createdAt' | 'helpfulCount' | 'overallScore'> & { userEmail?: string }): Promise<Review> {
+  // Submit new review for teacher (authenticated via httpOnly skh_session cookie)
+  async submitReview(data: Omit<Review, 'id' | 'createdAt' | 'helpfulCount' | 'overallScore'>): Promise<Review> {
     const res = await fetch(`${API_BASE}/reviews`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // SEND COOKIES
+      credentials: 'include',
       body: JSON.stringify(data)
     });
     if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.detail || 'Failed to submit review');
+      const errData = await parseJsonSafe(res);
+      throw new ApiError(errData.detail || errData.message || 'Failed to submit review', res.status);
     }
     return await res.json();
   },
 
-  // Vote helpful
-  async voteHelpful(reviewId: string): Promise<{ success: boolean; newCount: number }> {
-    try {
-      const res = await fetch(`${API_BASE}/reviews/${reviewId}/vote`, { 
-        method: 'POST',
-        credentials: 'include' // SEND COOKIES
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (err) {
-      // Fallback
+  // Vote helpful (requires verified session; idempotent)
+  async voteHelpful(reviewId: string): Promise<{ success: boolean; voted: boolean; newCount: number }> {
+    const res = await fetch(`${API_BASE}/reviews/${reviewId}/vote`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const data = await parseJsonSafe(res);
+    if (!res.ok) {
+      throw new ApiError(data.detail || data.message || 'Failed to vote', res.status);
     }
-    const rev = mockReviews.find((r) => r.id === reviewId);
-    if (rev) {
-      rev.helpfulCount += 1;
-      return { success: true, newCount: rev.helpfulCount };
+    return data as { success: boolean; voted: boolean; newCount: number };
+  },
+
+  // Remove helpful vote (requires verified session; idempotent)
+  async unvoteHelpful(reviewId: string): Promise<{ success: boolean; voted: boolean; newCount: number }> {
+    const res = await fetch(`${API_BASE}/reviews/${reviewId}/vote`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    const data = await parseJsonSafe(res);
+    if (!res.ok) {
+      throw new ApiError(data.detail || data.message || 'Failed to remove vote', res.status);
     }
-    return { success: false, newCount: 0 };
+    return data as { success: boolean; voted: boolean; newCount: number };
   },
 
   // Auth OTP
@@ -180,24 +202,45 @@ export const api = {
     const res = await fetch(`${API_BASE}/auth/request-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // SEND COOKIES
+      credentials: 'include',
       body: JSON.stringify({ email })
     });
-    return await res.json();
+    const data = await parseJsonSafe(res);
+    if (!res.ok) {
+      return {
+        success: false,
+        message: data.message || data.detail || 'Could not send verification code. Please try again.'
+      };
+    }
+    return {
+      success: Boolean(data.success),
+      message: data.message || data.detail || ''
+    };
   },
 
   async verifyOTP(email: string, code: string): Promise<{ success: boolean; message?: string; email?: string }> {
     const res = await fetch(`${API_BASE}/auth/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // SEND COOKIES
+      credentials: 'include',
       body: JSON.stringify({ email, code })
     });
-    return await res.json();
+    const data = await parseJsonSafe(res);
+    if (!res.ok) {
+      return {
+        success: false,
+        message: data.message || data.detail || 'Verification failed. Please try again.'
+      };
+    }
+    return {
+      success: Boolean(data.success),
+      message: data.message || data.detail,
+      email: data.email
+    };
   },
 
   // Session Checks
-  async checkSession(): Promise<{ authenticated: boolean; userId?: string; emailHash?: string }> {
+  async checkSession(): Promise<{ authenticated: boolean; userId?: string; emailHash?: string; expiresAt?: string }> {
     try {
       const res = await fetch(`${API_BASE}/auth/me`, {
         method: 'GET',

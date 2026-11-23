@@ -1,116 +1,201 @@
-import hashlib
-import time
-import random
-from typing import Tuple, Dict
+import hmac
+import secrets
+from datetime import datetime, timedelta
+from typing import Optional, Tuple
+from sqlalchemy.orm import Session
+
 from app.config import settings
-
-# In-memory store for OTPs: email -> (otp_code, timestamp_expiry)
-otp_store: Dict[str, Tuple[str, float]] = {}
-
-# Per-Email rate limiting & lockout trackers: email -> list of attempt timestamps
-request_attempts: Dict[str, list] = {}
-verify_attempts: Dict[str, list] = {}
+from app.models import AuthAttempt, OTPChallenge
+from app.services.email_service import send_otp_email
+from app.services.identity import (
+    email_identity_hash,
+    normalize_email,
+    otp_code_hash,
+    utc_now,
+)
 
 LOCKOUT_WINDOW_SECONDS = 900  # 15 minutes
-MAX_REQUEST_ATTEMPTS = 5      # 5 OTP requests / 15 min per email
-MAX_VERIFY_ATTEMPTS = 5       # 5 Failed OTP code attempts / 15 min per email
+MAX_REQUEST_ATTEMPTS = 5      # 5 OTP requests / 15 min per identity
+MAX_VERIFY_ATTEMPTS = 5       # 5 failed OTP verifications / 15 min per identity
+PURGE_AFTER_HOURS = 24
 
-def is_rate_limited(tracker: Dict[str, list], email: str, max_limit: int) -> Tuple[bool, int]:
-    """Checks if email exceeded max_limit attempts in the last 15 minutes. Returns (is_blocked, remaining_seconds)."""
-    now = time.time()
-    attempts = tracker.get(email, [])
-    # Filter attempts within the 15 min sliding window
-    recent = [t for t in attempts if now - t < LOCKOUT_WINDOW_SECONDS]
-    tracker[email] = recent
-
-    if len(recent) >= max_limit:
-        oldest = recent[0]
-        remaining = int(LOCKOUT_WINDOW_SECONDS - (now - oldest))
-        return True, max(remaining, 1)
-
-    return False, 0
-
-def record_attempt(tracker: Dict[str, list], email: str):
-    """Records an attempt timestamp for this email"""
-    tracker.setdefault(email, []).append(time.time())
 
 def hash_email(email: str) -> str:
-    cleaned = email.strip().lower()
-    return hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
+    """Backward-compatible wrapper returning keyed HMAC-SHA256 identity hash."""
+    return email_identity_hash(email)
 
-from app.services.email_service import send_otp_email
 
 def send_real_email(to_email: str, otp_code: str) -> bool:
-    """Delegates to the branded SirKaisaHai HTML OTP email dispatcher"""
+    """Delegates to the branded SirKaisaHai HTML OTP email dispatcher."""
     return send_otp_email(to_email, otp_code)
 
-def request_otp_service(email: str) -> Tuple[bool, str]:
-    email_clean = email.strip().lower()
+
+def _purge_stale_auth_records(db: Session, now: datetime) -> None:
+    """Remove expired challenges and attempt records older than 24 hours."""
+    cutoff = now - timedelta(hours=PURGE_AFTER_HOURS)
+    db.query(OTPChallenge).filter(OTPChallenge.expires_at < cutoff).delete(synchronize_session=False)
+    db.query(AuthAttempt).filter(AuthAttempt.created_at < cutoff).delete(synchronize_session=False)
+
+
+def _check_identity_rate_limit(
+    db: Session,
+    identity_hash: str,
+    kind: str,
+    max_limit: int,
+    now: datetime,
+) -> Tuple[bool, int, int]:
+    """
+    Checks persistent auth_attempts in the last 15 minutes.
+    Returns (is_blocked, remaining_seconds, recent_count).
+    """
+    window_start = now - timedelta(seconds=LOCKOUT_WINDOW_SECONDS)
+    recent_rows = (
+        db.query(AuthAttempt.created_at)
+        .filter(
+            AuthAttempt.identity_hash == identity_hash,
+            AuthAttempt.kind == kind,
+            AuthAttempt.created_at >= window_start,
+        )
+        .order_by(AuthAttempt.created_at.asc())
+        .all()
+    )
+    count = len(recent_rows)
+    if count >= max_limit:
+        oldest = recent_rows[0][0]
+        elapsed = (now - oldest).total_seconds()
+        remaining = max(1, int(LOCKOUT_WINDOW_SECONDS - elapsed))
+        return True, remaining, count
+    return False, 0, count
+
+
+def request_otp_service(db: Session, email: str) -> Tuple[bool, str, int]:
+    """
+    Generates and persists a hashed 6-digit OTP challenge.
+    Returns (success, message, http_status_code).
+    """
+    email_clean = normalize_email(email)
     if not email_clean.endswith("@superior.edu.pk"):
-        return False, "Only Superior University student emails (@superior.edu.pk) are permitted."
+        return False, "Only Superior University student emails (@superior.edu.pk) are permitted.", 400
 
-    # 1. PER-EMAIL RATE LIMIT CHECK (5 requests / 15 min)
-    is_blocked, remaining_sec = is_rate_limited(request_attempts, email_clean, MAX_REQUEST_ATTEMPTS)
+    now = utc_now()
+    identity_hash = email_identity_hash(email_clean)
+
+    _purge_stale_auth_records(db, now)
+
+    is_blocked, remaining_sec, _ = _check_identity_rate_limit(
+        db, identity_hash, "request", MAX_REQUEST_ATTEMPTS, now
+    )
     if is_blocked:
-        mins = max(1, remaining_sec // 60)
-        return False, f"Too many OTP requests for {email_clean}. Locked out for {mins} more minutes. Please try again later."
+        mins = max(1, (remaining_sec + 59) // 60)
+        return (
+            False,
+            f"Too many verification requests. Please wait about {mins} minute(s) and try again.",
+            429,
+        )
 
-    # Record this OTP request attempt
-    record_attempt(request_attempts, email_clean)
+    # Invalidate any previously active unconsumed challenge for this identity
+    db.query(OTPChallenge).filter(
+        OTPChallenge.identity_hash == identity_hash,
+        OTPChallenge.consumed_at.is_(None),
+    ).update({"consumed_at": now}, synchronize_session=False)
 
-    # Generate real random 6-digit OTP code
-    otp_code = str(random.randint(100000, 999999))
-    expiry = time.time() + 600  # 10 minutes expiry
+    # Generate cryptographically secure 6-digit OTP (zero-padded)
+    otp_code = f"{secrets.randbelow(1_000_000):06d}"
+    expires_at = now + timedelta(seconds=settings.OTP_TTL_SECONDS)
 
-    otp_store[email_clean] = (otp_code, expiry)
+    challenge = OTPChallenge(
+        identity_hash=identity_hash,
+        code_hash=otp_code_hash(identity_hash, otp_code),
+        expires_at=expires_at,
+        consumed_at=None,
+        failed_attempts=0,
+        created_at=now,
+    )
+    db.add(challenge)
+    db.add(AuthAttempt(identity_hash=identity_hash, kind="request", created_at=now))
+    db.commit()
 
-    # Print to console for instant developer visibility
-    print(f"\n=======================================================")
-    print(f"  [OTP GENERATED] Email: {email_clean}")
-    print(f"  [OTP CODE]      👉 {otp_code} 👈")
-    print(f"=======================================================\n")
+    # Print plaintext OTP ONLY in local development (never in production logs)
+    if not settings.is_production:
+        print("\n=======================================================")
+        print(f"  [DEV OTP GENERATED] Email: {email_clean}")
+        print(f"  [DEV OTP CODE]      {otp_code}")
+        print("=======================================================\n")
 
-    # Try sending real email if SMTP configured
-    email_sent = send_real_email(email_clean, otp_code)
+    send_real_email(email_clean, otp_code)
 
-    if email_sent:
-        msg = f"OTP verification code sent to {email_clean}. Please check your inbox!"
-    else:
-        msg = f"OTP code generated for {email_clean}. Check terminal output or enter your code!"
+    # Generic non-enumerating response (does not leak prior verification status)
+    msg = "If this Superior University address is valid, a 6-digit verification code has been sent."
+    return True, msg, 200
 
-    return True, msg
 
-def verify_otp_service(email: str, code: str) -> Tuple[bool, str]:
-    """Validates OTP with strict per-email brute-force protection and lockout."""
-    email_clean = email.strip().lower()
+def verify_otp_service(db: Session, email: str, code: str) -> Tuple[bool, str, int, Optional[OTPChallenge]]:
+    """
+    Validates OTP against persistent hashed challenge using constant-time comparison.
+    Returns (success, message, http_status_code, matched_challenge).
+    Caller marks matched_challenge.consumed_at inside its commit transaction.
+    """
+    email_clean = normalize_email(email)
     code_clean = code.strip()
+    now = utc_now()
+    identity_hash = email_identity_hash(email_clean)
 
-    # 1. PER-EMAIL BRUTE-FORCE LOCKOUT CHECK (5 failed attempts / 15 min)
-    is_blocked, remaining_sec = is_rate_limited(verify_attempts, email_clean, MAX_VERIFY_ATTEMPTS)
+    is_blocked, remaining_sec, recent_fails = _check_identity_rate_limit(
+        db, identity_hash, "verify_fail", MAX_VERIFY_ATTEMPTS, now
+    )
     if is_blocked:
-        mins = max(1, remaining_sec // 60)
-        return False, f"Too many failed verification attempts for this email. Locked out for {mins} more minutes for security."
+        mins = max(1, (remaining_sec + 59) // 60)
+        return (
+            False,
+            f"Too many failed verification attempts. Locked out for about {mins} minute(s) for security.",
+            429,
+            None,
+        )
 
-    if email_clean in otp_store:
-        stored_code, expiry = otp_store[email_clean]
-        if time.time() > expiry:
-            del otp_store[email_clean]  # Clean up expired OTP
-            return False, "OTP code expired. Please request a new code."
-        if stored_code == code_clean:
-            # Successful verify: clear failed attempts for this email
-            verify_attempts.pop(email_clean, None)
-            return True, "Success"
+    challenge = (
+        db.query(OTPChallenge)
+        .filter(
+            OTPChallenge.identity_hash == identity_hash,
+            OTPChallenge.consumed_at.is_(None),
+        )
+        .order_by(OTPChallenge.created_at.desc())
+        .first()
+    )
 
-    # Record failed attempt towards lockout threshold
-    record_attempt(verify_attempts, email_clean)
-    attempts_left = MAX_VERIFY_ATTEMPTS - len(verify_attempts.get(email_clean, []))
+    if challenge is not None:
+        if now > challenge.expires_at:
+            challenge.consumed_at = now
+            db.commit()
+            return False, "Verification code expired. Please request a new code.", 400, None
+
+        expected_hash = otp_code_hash(identity_hash, code_clean)
+        if hmac.compare_digest(challenge.code_hash, expected_hash):
+            # Clear prior failed attempts in window on success
+            window_start = now - timedelta(seconds=LOCKOUT_WINDOW_SECONDS)
+            db.query(AuthAttempt).filter(
+                AuthAttempt.identity_hash == identity_hash,
+                AuthAttempt.kind == "verify_fail",
+                AuthAttempt.created_at >= window_start,
+            ).delete(synchronize_session=False)
+            return True, "Success", 200, challenge
+
+        challenge.failed_attempts = (challenge.failed_attempts or 0) + 1
+
+    # Record failed verification attempt persistently
+    db.add(AuthAttempt(identity_hash=identity_hash, kind="verify_fail", created_at=now))
+    db.commit()
+
+    attempts_left = MAX_VERIFY_ATTEMPTS - (recent_fails + 1)
     if attempts_left > 0:
-        return False, f"Invalid verification code. ({attempts_left} attempts remaining before 15-min lockout)"
-    else:
-        return False, "Invalid verification code. Maximum attempts reached. Account locked out for 15 minutes."
-
-def consume_otp(email: str):
-    """Remove OTP from store after successful DB commit. Safe to call even if already consumed."""
-    email_clean = email.strip().lower()
-    otp_store.pop(email_clean, None)
-
+        return (
+            False,
+            f"Invalid verification code. ({attempts_left} attempt(s) remaining before 15-min lockout)",
+            400,
+            None,
+        )
+    return (
+        False,
+        "Invalid verification code. Maximum attempts reached. Locked out for 15 minutes.",
+        429,
+        None,
+    )

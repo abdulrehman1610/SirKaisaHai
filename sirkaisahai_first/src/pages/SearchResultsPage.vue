@@ -2,7 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { Department, SearchResultItem } from '../types';
-import { api } from '../api';
+import { api, ApiError } from '../api';
 import { useAuthStore } from '../stores/auth';
 import DepartmentFilter from '../components/ui/DepartmentFilter.vue';
 import RatingBadge from '../components/ui/RatingBadge.vue';
@@ -101,8 +101,7 @@ async function handleCreateProfessor() {
       name: newProfName.value.trim(),
       departmentId: newProfDeptId.value,
       title: newProfTitle.value,
-      tags: ['New Faculty', 'Student Verified'],
-      userEmail: authStore.email || undefined
+      tags: ['New Faculty', 'Student Verified']
     });
 
     addSuccessMsg.value = `Added ${newProf.name} to the catalogue.`;
@@ -113,6 +112,12 @@ async function handleCreateProfessor() {
       loadData();
     }, 1000);
   } catch (err: unknown) {
+    if (err instanceof ApiError && err.status === 401) {
+      authStore.clearLocalSession();
+      showAddModal.value = false;
+      router.push({ path: '/auth', query: { redirect: route.fullPath } });
+      return;
+    }
     addErrorMsg.value = err instanceof Error ? err.message : 'Failed to add teacher.';
   } finally {
     isSubmittingProf.value = false;

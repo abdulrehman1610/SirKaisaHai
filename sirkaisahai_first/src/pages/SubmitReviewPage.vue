@@ -5,7 +5,7 @@ import StarRating from '../components/ui/StarRating.vue';
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
 import RatingBadge from '../components/ui/RatingBadge.vue';
 import { useAuthStore } from '../stores/auth';
-import { api } from '../api';
+import { api, ApiError } from '../api';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -98,13 +98,17 @@ async function handleSubmit() {
       comment: comment.value.trim(),
       gradeReceived: gradeReceived.value,
       semesterTaken: semesterTaken.value,
-      tags: ['Verified Student', 'Recent Semester'],
-      userEmail: authStore.email || undefined
+      tags: ['Verified Student', 'Recent Semester']
     });
 
     submittedProfId.value = offering.professorId;
     isSuccess.value = true;
   } catch (err: unknown) {
+    if (err instanceof ApiError && err.status === 401) {
+      authStore.clearLocalSession();
+      router.push({ path: '/auth', query: { redirect: route.fullPath } });
+      return;
+    }
     errorMsg.value = err instanceof Error ? err.message : 'Failed to submit review. Try again.';
   } finally {
     isSubmitting.value = false;
