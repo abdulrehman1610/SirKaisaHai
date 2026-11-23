@@ -9,8 +9,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "0003_otp_challenges_auth_attempts"
-down_revision: Union[str, None] = "0002_session_expiry_and_hash_version"
+revision: str = "0003_otp_and_auth_attempts"
+down_revision: Union[str, None] = "0002_session_and_hash_ver"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
